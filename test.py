@@ -75,7 +75,17 @@ from tool import tool
 # out = model(id)[0]
 
 # 测试def find_all_index(self, str1, str2)
-print(tool.find_all_index('abcabcabcabc','bc'))
+# print(tool.find_all_index('abcabcabcabc','bc'))
 
+# 测试制表符与空格和tab的区别于联系
+# import re
+# text = '我叫邢朋举，  来自中原工学院。 有着远大的抱负。       渴望为国家付出自己的微薄之力。'
+# texts = re.split('。|\t|',text)
+# print(texts)
+
+# 测试边界list的截取
+list1 = [1,2]
+x = max(list1)
+print(list1[x:])
 
 

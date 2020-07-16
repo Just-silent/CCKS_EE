@@ -130,7 +130,6 @@ class BiLSTM_CRF(nn.Module):
     def init_hidden(self, batch_size=None):
         if batch_size is None:
             batch_size = self.batch_size
-
         h0 = torch.zeros(self.config.num_layers * 2, batch_size, self.config.bi_lstm_hidden // 2).to(device)
         c0 = torch.zeros(self.config.num_layers * 2, batch_size, self.config.bi_lstm_hidden // 2).to(device)
 
@@ -156,6 +155,112 @@ class BiLSTM_CRF(nn.Module):
         lstm_out, new_lengths = pad_packed_sequence(lstm_out)
         emission = self.linner(lstm_out)
         return emission
+
+class BiLSTM_CRF_changed(nn.Module):
+    def __init__(self, config, ntoken, ntag):
+        super(BiLSTM_CRF_changed, self).__init__()
+        self.config = config
+        self.embedding = nn.Embedding(ntoken, config.embedding_size)
+        self.lstm = nn.LSTM(input_size=config.embedding_size, hidden_size=config.bi_lstm_hidden // 2,
+                            num_layers=config.num_layers, bidirectional=True)
+        self.linner = nn.Linear(config.bi_lstm_hidden, ntag)
+        self.crflayer = CRF(ntag)
+
+    def init_hidden(self):
+        h0 = torch.zeros(self.config.num_layers * 2, self.config.batch_size, self.config.bi_lstm_hidden // 2).to(device)
+        c0 = torch.zeros(self.config.num_layers * 2, self.config.batch_size, self.config.bi_lstm_hidden // 2).to(device)
+        return h0, c0
+
+    def forward(self, texts, lengths):
+        lengths_mask = [sum(lengths[i]) for i in range(lengths.size(0))]
+        outputs = []
+        for i in range(texts.size(1)):
+            outputs.append(self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1)))
+        lstm1_output = torch.cat(outputs, dim=0)
+        lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
+        max_len = max(lengths)
+        lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
+        lstm2_output = self.lstm(lstm2_input, self.hidden)[0]
+        lstm2_output, _ = pad_packed_sequence(lstm2_output)
+        emission = self.linner(lstm2_output)
+        mask = []
+        for i in range(len(lengths_mask)):
+            mask.append([])
+            for j in range(lengths_mask[i]):
+                mask[i].append(True)
+            for j in range(max_len - lengths_mask[i]):
+                mask[i].append(False)
+        mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
+        return self.crflayer.decode(emission, mask)
+
+    def loss(self, texts, lengths, tag):
+        lengths_mask = [sum(lengths[i]) for i in range(lengths.size(0))]
+        outputs = []
+        for i in range(texts.size(1)):
+            outputs.append(self.lstm_forward(texts[:,i:i+1,:].squeeze(1), lengths[:,i:i+1].squeeze(1)))
+        lstm1_output = torch.cat(outputs, dim=0)
+        lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
+        max_len = max(lengths)
+        lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
+        lstm2_output = self.lstm(lstm2_input, self.hidden)[0]
+        lstm2_output, _ = pad_packed_sequence(lstm2_output)
+        emission = self.linner(lstm2_output)
+        tag = tag.permute(1,0)[:max_len,:]
+        mask = []
+        for i in range(len(lengths_mask)):
+            mask.append([])
+            for j in range(lengths_mask[i]):
+                mask[i].append(True)
+            for j in range(max_len-lengths_mask[i]):
+                mask[i].append(False)
+        mask = torch.tensor(np.array(mask)).permute(1,0).to(device)
+        return -self.crflayer(emission, tag, mask)
+
+    def lstm_forward(self, text, lengths):
+        text = self.embedding(text).permute(1,0,2)
+        if 0 in lengths.cpu().numpy().tolist():
+            start = lengths.cpu().numpy().tolist().index(0)
+            before_lengths = lengths[:start]
+            max_len = max(before_lengths.cpu().numpy().tolist())
+            before_text = text[:,:start,:]
+            before_pad_text = before_text[max_len:,:,:]
+            after_text = text[:,start:,:]
+            text = pack_padded_sequence(before_text, before_lengths, enforce_sorted=False)
+            self.hidden = self.init_hidden()
+            lstm_out, self.hidden = self.lstm(text, self.hidden)
+            lstm_out, new_lengths = pad_packed_sequence(lstm_out)
+            lstm_out = torch.cat([lstm_out, before_pad_text], dim=0)
+            lstm_out = torch.cat([lstm_out, after_text], dim=1)
+        else:
+            max_len = max(lengths.cpu().numpy().tolist())
+            pad_text = text[max_len:,:,:]
+            text = pack_padded_sequence(text, lengths, enforce_sorted=False)
+            self.hidden = self.init_hidden()
+            lstm_out, self.hidden = self.lstm(text)
+            lstm_out, new_lengths = pad_packed_sequence(lstm_out)
+            lstm_out = torch.cat([lstm_out, pad_text],dim=0)
+        return lstm_out
+
+    def get_text_lengths(self, lstm1_output, lengths, size):
+        list1 = []
+        list2 = []
+        list3 = []
+        lengths = lengths.cpu().numpy().tolist()
+        for i in range(len(lengths)):
+            output_i = lstm1_output[:,i:i+1,:].squeeze(1)
+            for j in range(len(lengths[i])):
+                start = j*size
+                middle = start + lengths[i][j]
+                end = (j+1)*size
+                list1.append(output_i[start:middle,:])
+                list2.append(output_i[middle:end,:])
+            list3.append(torch.cat([torch.cat(list1,dim=0), torch.cat(list2,dim=0)], dim=0).unsqueeze(0))
+            list1 = []
+            list2 = []
+        tensor = torch.cat(list3, dim=0).permute(1,0,2)
+        list3=[]
+        new_lengths = torch.tensor(np.array([sum(l) for l in lengths], dtype=np.int64))
+        return tensor, new_lengths
 
 class BiLSTM_CRF_ATT(BiLSTM_CRF):
     def __init__(self, config, ntoken, ntag, vectors):
