@@ -15,7 +15,7 @@ from tqdm import tqdm
 from config import config, device
 from tool import tool, logger, get_all_tag
 from openpyxl import load_workbook
-from model import TransformerEncoderModel, BiLSTM_CRF, CNN_CRF, BiLSTM_CRF_ATT, BiLSTM_CRF_changed
+from model import TransformerEncoderModel, BiLSTM_CRF, CNN_CRF, BiLSTM_CRF_ATT, BiLSTM_CRF_changed, TransformerEncoderModel_DAE
 from sklearn.metrics import classification_report
 from result.predict_eval_process import format_result
 import torch.optim as optim
