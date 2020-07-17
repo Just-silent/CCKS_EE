@@ -98,6 +98,7 @@ class TransformerEncoderModel(nn.Module):
                                           src_key_padding_mask=src_key_padding_mask.to(device))
         return output
 
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -113,6 +114,7 @@ class PositionalEncoding(nn.Module):
     def forward(self, x):
         x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
+
 
 class BiLSTM_CRF(nn.Module):
     def __init__(self, config, ntoken, ntag, vectors):
@@ -156,6 +158,7 @@ class BiLSTM_CRF(nn.Module):
         emission = self.linner(lstm_out)
         return emission
 
+
 class BiLSTM_CRF_changed(nn.Module):
     def __init__(self, config, ntoken, ntag):
         super(BiLSTM_CRF_changed, self).__init__()
@@ -179,11 +182,13 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm1_output = torch.cat(outputs, dim=0)
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
-        # lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
-        # hidden = self.init_hidden()
-        # lstm2_output = self.lstm(lstm2_input, hidden)[0]
-        # lstm2_output, _ = pad_packed_sequence(lstm2_output)
-        lstm2_output = lstm2_input[:max_len, :, :]
+        # 前两层
+        lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
+        hidden = self.init_hidden()
+        lstm2_output, _ = self.lstm(lstm2_input, hidden)
+        lstm2_output, _ = pad_packed_sequence(lstm2_output)
+        # 第一层
+        # lstm2_output = lstm2_input[:max_len, :, :]
         emission = self.linner(lstm2_output)
         mask = []
         for i in range(len(lengths_mask)):
@@ -195,58 +200,89 @@ class BiLSTM_CRF_changed(nn.Module):
         mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
         return self.crflayer.decode(emission, mask)
 
-    def loss(self, texts, lengths, tag):
+    def loss(self, texts, lengths, tag, sub_tag):
         lengths_mask = [sum(lengths[i]) for i in range(lengths.size(0))]
         outputs = []
+        losses = []
         for i in range(texts.size(1)):
-            outputs.append(self.lstm_forward(texts[:,i:i+1,:].squeeze(1), lengths[:,i:i+1].squeeze(1)))
+            outputs.append(self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1),
+                                             sub_tag[:, i:i + 1, :].squeeze(1))[0])
+            losses.append(self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1),
+                                            sub_tag[:, i:i + 1, :].squeeze(1))[1])
         lstm1_output = torch.cat(outputs, dim=0)
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
-        # lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
-        # hidden = self.init_hidden()
-        # lstm2_output = self.lstm(lstm2_input, hidden)[0]
-        # lstm2_output, _ = pad_packed_sequence(lstm2_output)
-        lstm2_output = lstm2_input[:max_len,:,:]
+        # 前两层
+        lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
+        hidden = self.init_hidden()
+        lstm2_output, _ = self.lstm(lstm2_input, hidden)
+        lstm2_output, _ = pad_packed_sequence(lstm2_output)
+        # 第一层
+        # lstm2_output = lstm2_input[:max_len, :, :]
         emission = self.linner(lstm2_output)
-        tag = tag.permute(1,0)[:max_len,:]
+        tag = tag.permute(1, 0)[:max_len, :]
         mask = []
         for i in range(len(lengths_mask)):
             mask.append([])
             for j in range(lengths_mask[i]):
                 mask[i].append(True)
-            for j in range(max_len-lengths_mask[i]):
+            for j in range(max_len - lengths_mask[i]):
                 mask[i].append(False)
-        mask = torch.tensor(np.array(mask)).permute(1,0).to(device)
-        return -self.crflayer(emission, tag, mask)
+        mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
+        # 下面两个loss相差不大
+        # x = sum(losses)
+        # y = -self.crflayer(emission, tag, mask)
+        return -self.crflayer(emission, tag, mask) + sum(losses)
 
-    def lstm_forward(self, text, lengths):
-        text = self.embedding(text).permute(1,0,2)
+    def lstm_forward(self, text, lengths, sub_tag):
+        text = self.embedding(text).permute(1, 0, 2)
+        sub_tag = sub_tag.permute(1, 0)
         if 0 in lengths.cpu().numpy().tolist():
             start = lengths.cpu().numpy().tolist().index(0)
             before_lengths = lengths[:start]
-            if len(before_lengths)==0:
+            if len(before_lengths) == 0:
                 lstm_out = text
             else:
                 max_len = max(before_lengths.cpu().numpy().tolist())
-                before_text = text[:,:start,:]
-                before_pad_text = before_text[max_len:,:,:]
-                after_text = text[:,start:,:]
+                before_text = text[:, :start, :]
+                before_pad_text = before_text[max_len:, :, :]
+                after_text = text[:, start:, :]
                 text = pack_padded_sequence(before_text, before_lengths, enforce_sorted=False)
-                self.hidden = self.init_hidden()
-                lstm_out, self.hidden = self.lstm(text, self.hidden)
+                hidden = self.init_hidden()
+                lstm_out, _ = self.lstm(text, hidden)
                 lstm_out, new_lengths = pad_packed_sequence(lstm_out)
                 lstm_out = torch.cat([lstm_out, before_pad_text], dim=0)
+                emission = self.linner(lstm_out)
+                sub_tag = sub_tag[:, :start]
+                mask = []
+                for i in range(len(before_lengths)):
+                    mask.append([])
+                    for j in range(before_lengths[i]):
+                        mask[i].append(True)
+                    for j in range(emission.size(0) - before_lengths[i]):
+                        mask[i].append(False)
+                mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
+                loss = -self.crflayer(emission, sub_tag, mask)
                 lstm_out = torch.cat([lstm_out, after_text], dim=1)
         else:
             max_len = max(lengths.cpu().numpy().tolist())
-            pad_text = text[max_len:,:,:]
+            pad_text = text[max_len:, :, :]
             text = pack_padded_sequence(text, lengths, enforce_sorted=False)
-            self.hidden = self.init_hidden()
-            lstm_out, self.hidden = self.lstm(text)
+            hidden = self.init_hidden()
+            lstm_out, _ = self.lstm(text, hidden)
             lstm_out, new_lengths = pad_packed_sequence(lstm_out)
-            lstm_out = torch.cat([lstm_out, pad_text],dim=0)
-        return lstm_out
+            lstm_out = torch.cat([lstm_out, pad_text], dim=0)
+            emission = self.linner(lstm_out)
+            mask = []
+            for i in range(len(lengths)):
+                mask.append([])
+                for j in range(lengths[i]):
+                    mask[i].append(True)
+                for j in range(emission.size(0) - lengths[i]):
+                    mask[i].append(False)
+            mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
+            loss = -self.crflayer(emission, sub_tag, mask)
+        return lstm_out, loss
 
     def get_text_lengths(self, lstm1_output, lengths, size):
         list1 = []
@@ -254,26 +290,27 @@ class BiLSTM_CRF_changed(nn.Module):
         list3 = []
         lengths = lengths.cpu().numpy().tolist()
         for i in range(len(lengths)):
-            output_i = lstm1_output[:,i:i+1,:].squeeze(1)
+            output_i = lstm1_output[:, i:i + 1, :].squeeze(1)
             for j in range(len(lengths[i])):
-                start = j*size
+                start = j * size
                 middle = start + lengths[i][j]
-                end = (j+1)*size
-                list1.append(output_i[start:middle,:])
-                list2.append(output_i[middle:end,:])
-            list3.append(torch.cat([torch.cat(list1,dim=0), torch.cat(list2,dim=0)], dim=0).unsqueeze(0))
+                end = (j + 1) * size
+                list1.append(output_i[start:middle, :])
+                list2.append(output_i[middle:end, :])
+            list3.append(torch.cat([torch.cat(list1, dim=0), torch.cat(list2, dim=0)], dim=0).unsqueeze(0))
             list1 = []
             list2 = []
-        tensor = torch.cat(list3, dim=0).permute(1,0,2)
-        list3=[]
+        tensor = torch.cat(list3, dim=0).permute(1, 0, 2)
+        list3 = []
         new_lengths = torch.tensor(np.array([sum(l) for l in lengths], dtype=np.int64))
         return tensor, new_lengths
 
+
 class BiLSTM_CRF_ATT(BiLSTM_CRF):
     def __init__(self, config, ntoken, ntag, vectors):
-        super(BiLSTM_CRF_ATT,self).__init__(config, ntoken, ntag, vectors) # 继承父类的属性
+        super(BiLSTM_CRF_ATT, self).__init__(config, ntoken, ntag, vectors)  # 继承父类的属性
         self.attention = MultiHeadAttention(self.config.key_dim, self.config.val_dim, self.config.bi_lstm_hidden,
-                        self.config.num_heads, self.config.attn_dropout)
+                                            self.config.num_heads, self.config.attn_dropout)
 
     def lstm_forward(self, text, lengths):
         text = self.embedding(text)
@@ -286,16 +323,19 @@ class BiLSTM_CRF_ATT(BiLSTM_CRF):
         attn_out = attn_out.permute(1, 0, 2)
         return self.linner(attn_out)
 
+
 class CNN_CRF(nn.Module):
     def __init__(self, config, ntoken, ntag):
         super(CNN_CRF, self).__init__()
         self.config = config
-        self.sizes = [3,5,7]
+        self.sizes = [3, 5, 7]
         self.embedding = nn.Embedding(ntoken, config.embedding_size)
         if config.is_vector:
             vectors = Vectors(name='./vector/sgns.wiki.word')
             self.embedding = nn.Embedding.from_pretrained(vectors)
-        self.convs = nn.ModuleList([nn.Conv2d(config.chanel_num, config.filter_num, (size, config.embedding_size), padding=size//2) for size in self.sizes])
+        self.convs = nn.ModuleList(
+            [nn.Conv2d(config.chanel_num, config.filter_num, (size, config.embedding_size), padding=size // 2) for size
+             in self.sizes])
         self.linner = nn.Linear(config.bi_lstm_hidden, ntag)
         self.crflayer = CRF(ntag)
 
@@ -316,6 +356,7 @@ class CNN_CRF(nn.Module):
             x = int((self.sizes[i] - 1) / 2)
             cnn_out[i] = cnn_out[i][:, :, :, x]
         return self.linner(torch.cat(cnn_out, 1).squeeze().permute(2, 0, 1))
+
 
 class BiLSTM_CRF_DAE(nn.Module):
     def __init__(self, config, ntoken, ntag, vectors):
@@ -354,7 +395,6 @@ class BiLSTM_CRF_DAE(nn.Module):
         lm_loss = self.criterion(lm_output.view(-1, self.vocab_size), x.view(-1))
         return crf_loss + lm_loss
 
-
     def forward(self, x, sent_lengths):
         mask = torch.ne(x, self.config.pad_index)
         emissions = self.lstm_forward(x, sent_lengths)
@@ -386,6 +426,7 @@ class BiLSTM_CRF_DAE(nn.Module):
             src_encoding.contiguous().view(src_encoding.size(0) * src_encoding.size(1), src_encoding.size(2)))
         lm_output = decoded.view(src_encoding.size(0), src_encoding.size(1), decoded.size(1))
         return lm_output
+
 
 class TransformerEncoderModel_DAE(nn.Module):
     def __init__(self, config, ntoken, ntag, vectors):
