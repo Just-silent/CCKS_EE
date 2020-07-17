@@ -182,6 +182,7 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm1_output = torch.cat(outputs, dim=0)
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
+
         # 前两层
         lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
         hidden = self.init_hidden()
@@ -189,6 +190,7 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm2_output, _ = pad_packed_sequence(lstm2_output)
         # 第一层
         # lstm2_output = lstm2_input[:max_len, :, :]
+
         emission = self.linner(lstm2_output)
         mask = []
         for i in range(len(lengths_mask)):
@@ -212,6 +214,7 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm1_output = torch.cat(outputs, dim=0)
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
+
         # 前两层
         lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
         hidden = self.init_hidden()
@@ -219,6 +222,7 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm2_output, _ = pad_packed_sequence(lstm2_output)
         # 第一层
         # lstm2_output = lstm2_input[:max_len, :, :]
+
         emission = self.linner(lstm2_output)
         tag = tag.permute(1, 0)[:max_len, :]
         mask = []
