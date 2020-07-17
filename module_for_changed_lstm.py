@@ -85,10 +85,10 @@ def build_stoi_itos(train_data, dev_data, kind):
     return stoi, itos
 
 def get_batch(data, text_stoi, tag_stoi, batch_size):
-    iter = {'text':[], 'tag':[],'text_len':[]}
+    iter = {'text':[], 'tag':[], 'sub_tag':[], 'text_len':[]}
     chunk = len(data)//batch_size if len(data)%batch_size==0 else len(data)//batch_size+1
     for num in range(chunk):
-        iter_i = {'text':[], 'tag':[], 'text_len':[]}
+        iter_i = {'text':[], 'tag':[], 'sub_tag':[], 'text_len':[]}
         max_sub_len = 0
         if num!=chunk-1:
             datas = data[num*batch_size:(num+1)*batch_size]
@@ -97,7 +97,7 @@ def get_batch(data, text_stoi, tag_stoi, batch_size):
         max_sub = datas[0]['sub_len']
         for data_i in datas:
             texts_o = []
-            tags_o = []
+            sub_tag = []
             text_len = []
             text = ''.join(data_i['text'])
             tag = data_i['tag']
@@ -113,43 +113,51 @@ def get_batch(data, text_stoi, tag_stoi, batch_size):
                         texts_o.append(text)
             for i in range(len(texts_o)):
                 texts_o[i] = [c for c in texts_o[i]]
-            # start = 0
+            start = 0
             for text in texts_o:
-                # tags_o.append(tag[start:start+len(text)])
-                # start+=len(text)
+                sub_tag.append(tag[start:start+len(text)])
+                start+=len(text)
                 text_len.append(len(text))
                 if len(text)>max_sub_len:
                     max_sub_len = len(text)
             iter_i['text'].append(texts_o)
             iter_i['tag'].append(tag)
+            iter_i['sub_tag'].append(sub_tag)
             iter_i['text_len'].append(text_len)
         for j in range(batch_size):
             if len(iter_i['text'])<batch_size:
                 for i in range(batch_size-len(iter_i['text'])):
                     texts_o = [['pad' for k in range(max_sub_len)] for num in range(max_sub)]
+                    sub_tag_o = [['pad' for k in range(max_sub_len)] for num in range(max_sub)]
                     tags_o = ['pad' for k in range(max_sub_len*max_sub)]
                     text_len = [0 for num in range(max_sub)]
                     iter_i['text'].append(texts_o)
                     iter_i['tag'].append(tags_o)
+                    iter_i['sub_tag'].append(sub_tag_o)
                     iter_i['text_len'].append(text_len)
-            if len(iter_i['text'][j])<max_sub_len*max_sub:
+            if len(iter_i['tag'][j])<max_sub_len*max_sub:
                 iter_i['tag'][j].extend(['pad' for i in range(max_sub_len*max_sub-len(iter_i['tag'][j]))])
             for i in range(len(iter_i['text'][j])):
                 if len(iter_i['text'][j][i])<max_sub_len:
                     iter_i['text'][j][i].extend(['pad' for i in range(max_sub_len-len(iter_i['text'][j][i]))])
+                    iter_i['sub_tag'][j][i].extend(['pad' for i in range(max_sub_len-len(iter_i['sub_tag'][j][i]))])
             if len(iter_i['text'][j])<max_sub:
                 for k in range(max_sub-len(iter_i['text'][j])):
                     iter_i['text'][j].append(['pad' for i in range(max_sub_len)])
+                    iter_i['sub_tag'][j].append(['pad' for i in range(max_sub_len)])
                     iter_i['text_len'][j].append(0)
         for i in range(batch_size):
             iter_i['tag'][i] = [tag_stoi[c] for c in iter_i['tag'][i]]
             for j in range(len(iter_i['text'][i])):
                 iter_i['text'][i][j] = [text_stoi[c] for c in iter_i['text'][i][j]]
+                iter_i['sub_tag'][i][j] = [tag_stoi[c] for c in iter_i['sub_tag'][i][j]]
         text_tensor = torch.tensor(numpy.array(iter_i['text'], dtype=numpy.int64)).to(device)
         tag_tensor = torch.tensor(numpy.array(iter_i['tag'], dtype=numpy.int64)).to(device)
+        sub_tag_tensor = torch.tensor(numpy.array(iter_i['sub_tag'], dtype=numpy.int64)).to(device)
         text_len_tensor = torch.tensor(numpy.array(iter_i['text_len'], dtype=numpy.int64)).to(device)
         iter['text'].append(text_tensor)
         iter['tag'].append(tag_tensor)
+        iter['sub_tag'].append(sub_tag_tensor)
         iter['text_len'].append(text_len_tensor)
     return iter
 
@@ -198,8 +206,9 @@ class EE():
                 optimizer.zero_grad()
                 text = train_iter['text'][i]
                 tag = train_iter['tag'][i]
+                sub_tag = train_iter['sub_tag'][i]
                 text_len = train_iter['text_len'][i]
-                loss = model.loss(text, text_len, tag)
+                loss = model.loss(text, text_len, tag, sub_tag)
                 acc_loss += loss.view(-1).cpu().data.tolist()[0]
                 loss.backward()
                 optimizer.step()
