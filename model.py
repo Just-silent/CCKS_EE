@@ -178,7 +178,9 @@ class BiLSTM_CRF_changed(nn.Module):
         lengths_mask = [sum(lengths[i]) for i in range(lengths.size(0))]
         outputs = []
         for i in range(texts.size(1)):
-            outputs.append(self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1)))
+            output = self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1),
+                                             None)
+            outputs.append(output)
         lstm1_output = torch.cat(outputs, dim=0)
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
@@ -207,10 +209,10 @@ class BiLSTM_CRF_changed(nn.Module):
         outputs = []
         losses = []
         for i in range(texts.size(1)):
-            outputs.append(self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1),
-                                             sub_tag[:, i:i + 1, :].squeeze(1))[0])
-            losses.append(self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1),
-                                            sub_tag[:, i:i + 1, :].squeeze(1))[1])
+            output, loss = self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1),
+                                             sub_tag[:, i:i + 1, :].squeeze(1))
+            outputs.append(output)
+            losses.append(loss)
         lstm1_output = torch.cat(outputs, dim=0)
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
@@ -240,7 +242,8 @@ class BiLSTM_CRF_changed(nn.Module):
 
     def lstm_forward(self, text, lengths, sub_tag):
         text = self.embedding(text).permute(1, 0, 2)
-        sub_tag = sub_tag.permute(1, 0)
+        if sub_tag is not None:
+            sub_tag = sub_tag.permute(1, 0)
         if 0 in lengths.cpu().numpy().tolist():
             start = lengths.cpu().numpy().tolist().index(0)
             before_lengths = lengths[:start]
@@ -257,17 +260,18 @@ class BiLSTM_CRF_changed(nn.Module):
                 lstm_out, _ = self.lstm(text, hidden)
                 lstm_out, new_lengths = pad_packed_sequence(lstm_out)
                 lstm_out = torch.cat([lstm_out, before_pad_text], dim=0)
-                emission = self.linner(lstm_out)
-                sub_tag = sub_tag[:, :start]
-                mask = []
-                for i in range(len(before_lengths)):
-                    mask.append([])
-                    for j in range(before_lengths[i]):
-                        mask[i].append(True)
-                    for j in range(emission.size(0) - before_lengths[i]):
-                        mask[i].append(False)
-                mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
-                loss = -self.crflayer(emission, sub_tag, mask)
+                if sub_tag is not None:
+                    emission = self.linner(lstm_out)
+                    sub_tag = sub_tag[:, :start]
+                    mask = []
+                    for i in range(len(before_lengths)):
+                        mask.append([])
+                        for j in range(before_lengths[i]):
+                            mask[i].append(True)
+                        for j in range(emission.size(0) - before_lengths[i]):
+                            mask[i].append(False)
+                    mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
+                    loss = -self.crflayer(emission, sub_tag, mask)
                 lstm_out = torch.cat([lstm_out, after_text], dim=1)
         else:
             max_len = max(lengths.cpu().numpy().tolist())
@@ -277,17 +281,21 @@ class BiLSTM_CRF_changed(nn.Module):
             lstm_out, _ = self.lstm(text, hidden)
             lstm_out, new_lengths = pad_packed_sequence(lstm_out)
             lstm_out = torch.cat([lstm_out, pad_text], dim=0)
-            emission = self.linner(lstm_out)
-            mask = []
-            for i in range(len(lengths)):
-                mask.append([])
-                for j in range(lengths[i]):
-                    mask[i].append(True)
-                for j in range(emission.size(0) - lengths[i]):
-                    mask[i].append(False)
-            mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
-            loss = -self.crflayer(emission, sub_tag, mask)
-        return lstm_out, loss
+            if sub_tag is not None:
+                emission = self.linner(lstm_out)
+                mask = []
+                for i in range(len(lengths)):
+                    mask.append([])
+                    for j in range(lengths[i]):
+                        mask[i].append(True)
+                    for j in range(emission.size(0) - lengths[i]):
+                        mask[i].append(False)
+                mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
+                loss = -self.crflayer(emission, sub_tag, mask)
+        if sub_tag is not None:
+            return lstm_out, loss
+        else:
+            return lstm_out
 
     def get_text_lengths(self, lstm1_output, lengths, size):
         list1 = []
