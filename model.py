@@ -246,6 +246,7 @@ class BiLSTM_CRF_changed(nn.Module):
             before_lengths = lengths[:start]
             if len(before_lengths) == 0:
                 lstm_out = text
+                loss = torch.tensor(np.log(1))
             else:
                 max_len = max(before_lengths.cpu().numpy().tolist())
                 before_text = text[:, :start, :]

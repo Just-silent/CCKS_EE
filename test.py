@@ -89,6 +89,10 @@ from tool import tool
 # print(list1[x:])
 
 # cuda cudnn
-print(torch.cuda.is_available())
-torch.backends.cudnn.enabled = False
+# print(torch.cuda.is_available())
+# torch.backends.cudnn.enabled = False
+
+# create tensor
+a=torch.tensor(np.log(1))
+print(a)
 
