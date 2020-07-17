@@ -140,6 +140,7 @@ def get_batch(data, text_stoi, tag_stoi, batch_size):
             for i in range(len(iter_i['text'][j])):
                 if len(iter_i['text'][j][i])<max_sub_len:
                     iter_i['text'][j][i].extend(['pad' for i in range(max_sub_len-len(iter_i['text'][j][i]))])
+                if len(iter_i['sub_tag'][j][i]) < max_sub_len:
                     iter_i['sub_tag'][j][i].extend(['pad' for i in range(max_sub_len-len(iter_i['sub_tag'][j][i]))])
             if len(iter_i['text'][j])<max_sub:
                 for k in range(max_sub-len(iter_i['text'][j])):
