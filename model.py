@@ -180,7 +180,8 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
         lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
-        lstm2_output = self.lstm(lstm2_input, self.hidden)[0]
+        hidden = self.init_hidden()
+        lstm2_output = self.lstm(lstm2_input, hidden)[0]
         lstm2_output, _ = pad_packed_sequence(lstm2_output)
         emission = self.linner(lstm2_output)
         mask = []
@@ -202,7 +203,8 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
         lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
-        lstm2_output = self.lstm(lstm2_input, self.hidden)[0]
+        hidden = self.init_hidden()
+        lstm2_output = self.lstm(lstm2_input, hidden)[0]
         lstm2_output, _ = pad_packed_sequence(lstm2_output)
         emission = self.linner(lstm2_output)
         tag = tag.permute(1,0)[:max_len,:]
@@ -221,16 +223,19 @@ class BiLSTM_CRF_changed(nn.Module):
         if 0 in lengths.cpu().numpy().tolist():
             start = lengths.cpu().numpy().tolist().index(0)
             before_lengths = lengths[:start]
-            max_len = max(before_lengths.cpu().numpy().tolist())
-            before_text = text[:,:start,:]
-            before_pad_text = before_text[max_len:,:,:]
-            after_text = text[:,start:,:]
-            text = pack_padded_sequence(before_text, before_lengths, enforce_sorted=False)
-            self.hidden = self.init_hidden()
-            lstm_out, self.hidden = self.lstm(text, self.hidden)
-            lstm_out, new_lengths = pad_packed_sequence(lstm_out)
-            lstm_out = torch.cat([lstm_out, before_pad_text], dim=0)
-            lstm_out = torch.cat([lstm_out, after_text], dim=1)
+            if len(before_lengths)==0:
+                lstm_out = text
+            else:
+                max_len = max(before_lengths.cpu().numpy().tolist())
+                before_text = text[:,:start,:]
+                before_pad_text = before_text[max_len:,:,:]
+                after_text = text[:,start:,:]
+                text = pack_padded_sequence(before_text, before_lengths, enforce_sorted=False)
+                self.hidden = self.init_hidden()
+                lstm_out, self.hidden = self.lstm(text, self.hidden)
+                lstm_out, new_lengths = pad_packed_sequence(lstm_out)
+                lstm_out = torch.cat([lstm_out, before_pad_text], dim=0)
+                lstm_out = torch.cat([lstm_out, after_text], dim=1)
         else:
             max_len = max(lengths.cpu().numpy().tolist())
             pad_text = text[max_len:,:,:]

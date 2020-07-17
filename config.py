@@ -4,21 +4,21 @@
 
 import torch
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 default_config = {
-    'experiment_name' : 'TransformerEncoderModel_DAE_bat_6.4', # 实验名称
+    'experiment_name' : 'test_BiLSTM_CRF_uncut', # 实验名称
     'model_path': './save_model/{}.pkl',
     'analysis_path' : './result/data/{}/analysis.xlsx',
-    'train_path' : './data/sub_cut_train.xlsx',
-    'dev_path' : './data/sub_cut_dev.xlsx',
+    'train_path' : './data/sub_train.xlsx',
+    'dev_path' : './data/sub_dev.xlsx',
     'train_dev_path' : './task2_train_reformat_cleaned.xlsx',
     'test_path' : './data/task2_no_val_cleaned.xlsx',
     'unformated_val_path' : './result/data/{}/unformated_val.xlsx',  #模型训练直接预测
     'test_formated_val_path' : './result/data/{}/test_format/formated_val.xlsx',    #测试format结果是否有提升
     'test_unformated_val_path' : './result/data/{}/test_format/unformated_val.xlsx',
-    'model_name' : 'TransformerEncoderModel_DAE', # TransformerEncoderModel_DAE or BiLSTM_CRF or
-    # TransformerEncoderModel or CNN_CRF or BiLSTM_CRF_ATT
+    'model_name' : 'BiLSTM_CRF', # TransformerEncoderModel_DAE or BiLSTM_CRF or
+    # TransformerEncoderModel or CNN_CRF or BiLSTM_CRF_ATT or BiLSTM_CRF_changed
     'is_pretrained_model' : False,
     'pretrained_config' : './pretrained_models/RoBERTa/config.json',
     'pretrained_model' : './pretrained_models/RoBERTa/pytorch_model.bin',
@@ -30,7 +30,7 @@ default_config = {
     'num_layers' : 1,
     'pad_index': 1,
     'epoch' : 100,
-    'batch_size' : 32,
+    'batch_size' : 16,
     'chanel_num' : 1,
     'filter_num' : 100,
     'learning_rate' : 2e-4,

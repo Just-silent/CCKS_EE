@@ -156,8 +156,8 @@ def get_batch(data, text_stoi, tag_stoi, batch_size):
 class EE():
     def __init__(self):
         self.model = None
-        self.word_vocab = None
-        self.tag_vocab = None
+        self.text_itos = None
+        self.tag_itos = None
         self.train_dev_data = None
 
     def train(self):
@@ -179,6 +179,8 @@ class EE():
         logger.info('Building vocab ...')
         text_stoi, text_itos = build_stoi_itos(train_data, dev_data, 'text')
         tag_stoi, tag_itos = build_stoi_itos(train_data, dev_data, 'tag')
+        self.tag_itos = tag_itos
+        self.text_itos = text_itos
         logger.info('Finished build vocab')
         logger.info('Building iterator ...')
         train_iter = get_batch(train_data, text_stoi, tag_stoi, batch_size=config.batch_size)
@@ -232,12 +234,19 @@ class EE():
             text = dev_iter['text'][i]
             tag = dev_iter['tag'][i]
             text_len = dev_iter['text_len'][i]
-            result_list = model(text, text_len)
+            text_len1 = [sum(dev_iter['text_len'][i][j]) for j in range(dev_iter['text_len'][i].size(0))]
+            tag_list = []
+            for i in range(config.batch_size):
+                tag_list.extend(tag[i][:text_len1[i]].cpu().numpy())
+            result = model(text, text_len)
+            result_list = []
+            for l in result:
+                result_list.extend(l)
             assert len(tag_list) == len(result_list), 'tag_list: {} != result_list: {}'.format(len(tag_list),
                                                                                                len(result_list))
-            tag_true = [self.tag_vocab.itos[k] for k in tag_list]
+            tag_true = [self.tag_itos[k] for k in tag_list]
             tag_true_all.extend(tag_true)
-            tag_pred = [self.tag_vocab.itos[k] for k in result_list]
+            tag_pred = [self.tag_itos[k] for k in result_list]
             tag_pred_all.extend(tag_pred)
             entities = self._evaluate(tag_true=tag_true, tag_pred=tag_pred)
             assert len(entities_total) == len(entities), 'entities_total: {} != entities: {}'.format(
@@ -273,7 +282,7 @@ class EE():
         print('--------------------------------------------------')
         entity_prf_dict['average'] = {'precision':p, 'recall':r, 'f1-score':f1, 'support':''}
         labels = []
-        for index, label in enumerate(self.tag_vocab.itos):
+        for index, label in enumerate(self.tag_itos.values()):
             labels.append(label)
         labels.remove('O')
         prf_dict = classification_report(tag_true_all, tag_pred_all, labels=labels, output_dict=True)

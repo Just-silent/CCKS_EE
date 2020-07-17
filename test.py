@@ -84,8 +84,11 @@ from tool import tool
 # print(texts)
 
 # 测试边界list的截取
-list1 = [1,2]
-x = max(list1)
-print(list1[x:])
+# list1 = [1,2]
+# x = max(list1)
+# print(list1[x:])
 
+# cuda cudnn
+print(torch.cuda.is_available())
+torch.backends.cudnn.enabled = False
 

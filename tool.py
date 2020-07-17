@@ -8,14 +8,13 @@ import logging
 import random
 import numpy as np
 import pandas as pd
-from config import config
+from config import config, device
 from transformers import *
 from random import shuffle
 import matplotlib.pyplot as plt
 from torchtext.vocab import Vectors
 from openpyxl import load_workbook, Workbook
 from torchtext.data import Field, Dataset, Example, BucketIterator
-DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
@@ -223,7 +222,7 @@ class Tool():
     def get_iterator(self, dataset: Dataset, batch_size=1,
                      sort_key=lambda x: len(x.text), sort_within_batch=True):
         iterator = BucketIterator(dataset, batch_size=batch_size, sort_key=sort_key,
-                              sort_within_batch=sort_within_batch, device=DEVICE)
+                              sort_within_batch=sort_within_batch, device=device)
         return iterator
 
     def show_1y(self, list_x, list_y, name):
