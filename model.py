@@ -183,7 +183,6 @@ class BiLSTM_CRF_changed(nn.Module):
         # hidden = self.init_hidden()
         # lstm2_output = self.lstm(lstm2_input, hidden)[0]
         # lstm2_output, _ = pad_packed_sequence(lstm2_output)
-
         lstm2_output = lstm2_input[:max_len, :, :]
         emission = self.linner(lstm2_output)
         mask = []
