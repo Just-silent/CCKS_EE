@@ -199,6 +199,7 @@ class BiLSTM_CRF_changed(nn.Module):
         mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
         return self.crflayer.decode(emission, mask)
 
+
     def loss(self, texts, lengths, tag, sub_tag):
         lengths_mask = [sum(lengths[i]) for i in range(lengths.size(0))]
         outputs = []
