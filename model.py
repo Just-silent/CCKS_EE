@@ -238,6 +238,7 @@ class BiLSTM_CRF_changed(nn.Module):
     def lstm_forward(self, text, lengths, sub_tag):
         text = self.embedding(text).permute(1,0,2)
         sub_tag = sub_tag.permute(1,0)
+        loss = torch.tensor(np.log(1))
         if 0 in lengths.cpu().numpy().tolist():
             start = lengths.cpu().numpy().tolist().index(0)
             before_lengths = lengths[:start]
