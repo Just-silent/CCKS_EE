@@ -188,7 +188,6 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm2_output, _ = pad_packed_sequence(lstm2_output)
         # 第一层
         # lstm2_output = lstm2_input[:max_len, :, :]
-
         emission = self.linner(lstm2_output)
         mask = []
         for i in range(len(lengths_mask)):
@@ -217,7 +216,6 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm2_output, _ = pad_packed_sequence(lstm2_output)
         # 第一层
         # lstm2_output = lstm2_input[:max_len,:,:]
-
         emission = self.linner(lstm2_output)
         tag = tag.permute(1,0)[:max_len,:]
         mask = []
