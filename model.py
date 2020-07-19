@@ -181,7 +181,6 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm1_output = torch.cat(outputs, dim=0)
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
-
         # 前两层
         lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
         hidden = self.init_hidden()
@@ -211,7 +210,6 @@ class BiLSTM_CRF_changed(nn.Module):
         lstm1_output = torch.cat(outputs, dim=0)
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
-
         # 前两层
         lstm2_input = pack_padded_sequence(lstm2_input, lengths, enforce_sorted=False)
         hidden = self.init_hidden()
