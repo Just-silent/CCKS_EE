@@ -162,6 +162,7 @@ def get_batch(data, text_stoi, tag_stoi, batch_size):
         iter['text_len'].append(text_len_tensor)
     return iter
 
+
 class EE():
     def __init__(self):
         self.model = None
