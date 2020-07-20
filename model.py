@@ -176,8 +176,10 @@ class BiLSTM_CRF_changed(nn.Module):
     def forward(self, texts, lengths):
         lengths_mask = [sum(lengths[i]) for i in range(lengths.size(0))]
         outputs = []
+        hidden = self.init_hidden()
         for i in range(texts.size(1)):
-            outputs.append(self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1), None))
+            output, hidden = self.lstm_forward(texts[:, i:i + 1, :].squeeze(1), lengths[:, i:i + 1].squeeze(1), None, hidden)
+            outputs.append(output)
         lstm1_output = torch.cat(outputs, dim=0)
         lstm2_input, lengths = self.get_text_lengths(lstm1_output, lengths, size=texts.size(2))
         max_len = max(lengths)
@@ -189,23 +191,17 @@ class BiLSTM_CRF_changed(nn.Module):
         # 第一层
         # lstm2_output = lstm2_input[:max_len, :, :]
         emission = self.linner(lstm2_output)
-        mask = []
-        for i in range(len(lengths_mask)):
-            mask.append([])
-            for j in range(lengths_mask[i]):
-                mask[i].append(True)
-            for j in range(max_len - lengths_mask[i]):
-                mask[i].append(False)
-        mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
+        mask = self.get_mask(lengths_mask, max_len)
         return self.crflayer.decode(emission, mask)
 
 
-    def loss(self, texts, lengths, tag, sub_tag):
+    def loss(self, texts, lengths, tag, sub_tag, hidden_tag):
         lengths_mask = [sum(lengths[i]) for i in range(lengths.size(0))]
         outputs = []
         losses = []
+        hidden = self.init_hidden()
         for i in range(texts.size(1)):
-            x1, x2 = self.lstm_forward(texts[:,i:i+1,:].squeeze(1), lengths[:,i:i+1].squeeze(1), sub_tag[:,i:i+1,:].squeeze(1))
+            x1, x2, hidden = self.lstm_forward(texts[:,i:i+1,:].squeeze(1), lengths[:,i:i+1].squeeze(1), sub_tag[:,i:i+1,:].squeeze(1), hidden)
             outputs.append(x1)
             losses.append(x2)
         lstm1_output = torch.cat(outputs, dim=0)
@@ -220,14 +216,7 @@ class BiLSTM_CRF_changed(nn.Module):
         # lstm2_output = lstm2_input[:max_len,:,:]
         emission = self.linner(lstm2_output)
         tag = tag.permute(1,0)[:max_len,:]
-        mask = []
-        for i in range(len(lengths_mask)):
-            mask.append([])
-            for j in range(lengths_mask[i]):
-                mask[i].append(True)
-            for j in range(max_len-lengths_mask[i]):
-                mask[i].append(False)
-        mask = torch.tensor(np.array(mask)).permute(1,0).to(device)
+        mask = self.get_mask(lengths_mask, max_len)
         # 下面两个loss相差不大
         # x = sum(losses)
         # y = -self.crflayer(emission, tag, mask)
@@ -236,10 +225,10 @@ class BiLSTM_CRF_changed(nn.Module):
         # 1_loss
         return -self.crflayer(emission, tag, mask)
 
-    def lstm_forward(self, text, lengths, sub_tag):
+    def lstm_forward(self, text, lengths, sub_tag, hidden):
         text = self.embedding(text).permute(1,0,2)
         if sub_tag is not None:
-            sub_tag = sub_tag.permute(1,0)
+            sub_tag = sub_tag.permute(1, 0)
         loss = torch.tensor(np.log(1))
         if 0 in lengths.cpu().numpy().tolist():
             start = lengths.cpu().numpy().tolist().index(0)
@@ -252,8 +241,7 @@ class BiLSTM_CRF_changed(nn.Module):
                 before_pad_text = before_text[max_len:,:,:]
                 after_text = text[:,start:,:]
                 text = pack_padded_sequence(before_text, before_lengths, enforce_sorted=False)
-                hidden = self.init_hidden()
-                lstm_out, _ = self.lstm1(text, hidden)
+                lstm_out, new_hidden = self.lstm1(text, hidden)
                 lstm_out, new_lengths = pad_packed_sequence(lstm_out)
                 lstm_out = torch.cat([lstm_out, before_pad_text], dim=0)
                 if sub_tag is not None:
@@ -273,8 +261,7 @@ class BiLSTM_CRF_changed(nn.Module):
             max_len = max(lengths.cpu().numpy().tolist())
             pad_text = text[max_len:,:,:]
             text = pack_padded_sequence(text, lengths, enforce_sorted=False)
-            hidden = self.init_hidden()
-            lstm_out, _ = self.lstm1(text, hidden)
+            lstm_out, new_hidden = self.lstm1(text, hidden)
             lstm_out, new_lengths = pad_packed_sequence(lstm_out)
             lstm_out = torch.cat([lstm_out, pad_text],dim=0)
             if sub_tag is not None:
@@ -289,9 +276,20 @@ class BiLSTM_CRF_changed(nn.Module):
                 mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
                 loss = -self.crflayer(emission, sub_tag, mask)
         if sub_tag is not None:
-            return lstm_out, loss
+            return lstm_out, loss, new_hidden
         else:
             return lstm_out
+
+    def get_mask(self, lengths_mask, max_len):
+        mask = []
+        for i in range(len(lengths_mask)):
+            mask.append([])
+            for j in range(lengths_mask[i]):
+                mask[i].append(True)
+            for j in range(max_len - lengths_mask[i]):
+                mask[i].append(False)
+        mask = torch.tensor(np.array(mask)).permute(1, 0).to(device)
+        return mask
 
     def get_text_lengths(self, lstm1_output, lengths, size):
         list1 = []
