@@ -231,11 +231,15 @@ class BiLSTM_CRF_changed(nn.Module):
         # 下面两个loss相差不大
         # x = sum(losses)
         # y = -self.crflayer(emission, tag, mask)
-        return -self.crflayer(emission, tag, mask) + sum(losses)
+        # 2_loss
+        # return -self.crflayer(emission, tag, mask) + sum(losses)
+        # 1_loss
+        return -self.crflayer(emission, tag, mask)
 
     def lstm_forward(self, text, lengths, sub_tag):
         text = self.embedding(text).permute(1,0,2)
-        sub_tag = sub_tag.permute(1,0)
+        if sub_tag is not None:
+            sub_tag = sub_tag.permute(1,0)
         loss = torch.tensor(np.log(1))
         if 0 in lengths.cpu().numpy().tolist():
             start = lengths.cpu().numpy().tolist().index(0)
