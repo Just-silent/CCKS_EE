@@ -28,7 +28,9 @@ def y_tokenizer(tag: str):
 
 TEXT = Field(sequential=True, use_vocab=True, tokenize=x_tokenizer, include_lengths=True)
 TAG = Field(sequential=True, tokenize=y_tokenizer, use_vocab=True, is_target=True, pad_token=None)
-Fields = [('text', TEXT), ('tag', TAG)]
+Hidden_TAG = Field(sequential=True, tokenize=y_tokenizer, use_vocab=True, is_target=True, pad_token=None)
+# Fields = [('text', TEXT), ('tag', TAG)]
+Fields = [('text', TEXT), ('tag', TAG), ('hidden_tag', Hidden_TAG)]
 
 
 def get_tag(sentence, origin_places, sizes, transfered_places):
@@ -190,12 +192,14 @@ class EEDataset(Dataset):
         for line_num in range(max_row-1):
             line_num = line_num+2
             sentence, origin_places ,sizes ,transfered_places = ws.cell(line_num, 1).value, ws.cell(line_num, 2).value, ws.cell(line_num, 3).value, ws.cell(line_num, 4).value
-            # 未标注数据不参与训练 has up
-            # if not (origin_places is None and sizes is None and transfered_places is None):
+            hidden_tag = [0]
+            if not (origin_places is None and sizes is None and transfered_places is None):
+                hidden_tag = [1]
             if sentence is not None:
                 tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
                 sentence_list = [x for x in sentence]
-                examples.append(Example.fromlist((sentence_list, tag_list), fields))
+                # examples.append(Example.fromlist((sentence_list, tag_list), fields))
+                examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
         super(EEDataset, self).__init__(examples, fields, **kwargs)
 
 class Tool():
@@ -219,11 +223,60 @@ class Tool():
         TAG.build_vocab(*dataset)
         return TAG.vocab
 
+    def get_hidden_tag_vocab(self, *dataset):
+        Hidden_TAG.build_vocab(*dataset)
+        return Hidden_TAG.vocab
+
     def get_iterator(self, dataset: Dataset, batch_size=1,
                      sort_key=lambda x: len(x.text), sort_within_batch=True):
         iterator = BucketIterator(dataset, batch_size=batch_size, sort_key=sort_key,
                               sort_within_batch=sort_within_batch, device=device)
         return iterator
+
+    def _evaluate(self, tag_true, tag_pred):
+        """
+        先对true进行还原成 [{}] 再对pred进行还原成 [{}]
+        :param tag_true: list[]
+        :param tag_pred: list[]
+        :return:
+        """
+        true_list = self._build_list_dict(_len=len(tag_true), _list=tag_true)
+        pred_list = self._build_list_dict(_len=len(tag_pred), _list=tag_pred)
+        entities = {'origin_place': {'TP': 0, 'S': 0, 'G': 0},
+                    'size': {'TP': 0, 'S': 0, 'G': 0},
+                    'transfered_place': {'TP': 0, 'S': 0, 'G': 0}}
+        for true in true_list:
+            label_type = true['label_type']
+            entities[label_type]['G'] += 1
+        for pred in pred_list:
+            start_pos = pred['start_pos']
+            end_pos = pred['end_pos']
+            label_type = pred['label_type']
+            entities[label_type]['S'] += 1
+            for true in true_list:
+                if label_type == true['label_type'] and start_pos == true['start_pos'] and end_pos == true['end_pos']:
+                    entities[label_type]['TP'] += 1
+        return entities
+
+    def _build_list_dict(self, _len, _list):
+        build_list = []
+        tag_dict = {'origin_place': 'origin_place',
+                    'size': 'size',
+                    'transfered_place': 'transfered_place'}
+        for index, tag in zip(range(_len), _list):
+            if tag[0] == 'B':
+                label_type = tag[2:]
+                start_pos = index
+                if index < _len-1:
+                    end_pos = index + 1
+                    while _list[end_pos][0] == 'I' and _list[end_pos][2:] == label_type and end_pos<_len-1:
+                        end_pos += 1
+                else:
+                    end_pos = index
+                build_list.append({'start_pos': start_pos,
+                                   'end_pos': end_pos,
+                                   'label_type': tag_dict[label_type]})
+        return build_list
 
     def show_1y(self, list_x, list_y, name):
         fig, ax = plt.subplots()
@@ -347,7 +400,6 @@ class Tool():
             else:
                 break
         return starts
-
 
 tool = Tool()
 
