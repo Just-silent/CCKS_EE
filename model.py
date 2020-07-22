@@ -285,7 +285,7 @@ class BiLSTM_CRF_changed(nn.Module):
                 hidden_tag = hidden_tag.unsqueeze(1)
                 loss2 = -self.crflayer2(emission2, hidden_tag)
         if sub_tag is not None:
-            return lstm_out, loss1 + loss2, new_hidden
+            return lstm_out, loss1, new_hidden
         elif emission1 is not None:
             return lstm_out, new_hidden, self.crflayer1.decode(emission1, mask1)
         elif emission1 is None:

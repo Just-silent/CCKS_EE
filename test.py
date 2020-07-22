@@ -93,6 +93,11 @@ from tool import tool
 # torch.backends.cudnn.enabled = False
 
 # create tensor
-a=torch.tensor(np.log(1))
-print(a)
+# a=torch.tensor(np.log(1))
+# print(a)
 
+# extend
+l1 = [0,1,2]
+l2 = [2,2,3]
+l = l1.a
+print(l1.append(l2))

@@ -7,7 +7,7 @@ import torch
 device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 default_config = {
-    'experiment_name' : 'BiLSTM_CRF_changed_2_losses', # 实验名称
+    'experiment_name' : 'BiLSTM_CRF_changed_no_hidden_tag', # 实验名称
     'model_path': './save_model/{}.pkl',
     'analysis_path' : './result/data/{}/analysis.xlsx',
     'train_path' : './data/sub_train.xlsx',
