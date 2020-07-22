@@ -115,7 +115,7 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 class BiLSTM_CRF(nn.Module):
-    def __init__(self, config, ntoken, ntag, vectors):
+    def __init__(self, config, ntoken, ntag, hidden_ntag, vectors):
         super(BiLSTM_CRF, self).__init__()
         self.config = config
         self.batch_size = config.batch_size
@@ -125,7 +125,9 @@ class BiLSTM_CRF(nn.Module):
         self.lstm = nn.LSTM(input_size=config.embedding_size, hidden_size=config.bi_lstm_hidden // 2,
                             num_layers=config.num_layers, bidirectional=True)
         self.linner = nn.Linear(config.bi_lstm_hidden, ntag)
+        self.linner_hidden_tag = nn.Linear(config.bi_lstm_hidden, hidden_ntag)
         self.crflayer = CRF(ntag)
+        self.crflayer_hidden_tag = CRF(hidden_ntag)
 
     def init_hidden(self, batch_size=None):
         if batch_size is None:
@@ -137,24 +139,25 @@ class BiLSTM_CRF(nn.Module):
 
     def forward(self, text, lengths):
         mask = torch.ne(text, self.config.pad_index)
-        emission = self.lstm_forward(text, lengths)
+        emission, _ = self.lstm_forward(text, lengths)
         return self.crflayer.decode(emission, mask)
 
-    def loss(self, text, lengths, tag):
+    def loss(self, text, lengths, tag, hidden_tag):
         mask = torch.ne(text, self.config.pad_index)
-        emission = self.lstm_forward(text, lengths)
-        # crf_loss = -self.crflayer(emission, tag, mask=mask) / tag.size(1)
+        emission, new_hidden = self.lstm_forward(text, lengths)
+        emission_hidden_tag = self.linner_hidden_tag(new_hidden).unsqueeze(1)
+        hidden_tag_loss = -self.crflayer_hidden_tag(emission_hidden_tag, hidden_tag.permute(1, 0))
         crf_loss = -self.crflayer(emission, tag, mask=mask)
-        return crf_loss
+        return crf_loss + hidden_tag_loss
 
     def lstm_forward(self, text, lengths):
         text = self.embedding(text)
         text = pack_padded_sequence(text, lengths)
-        self.hidden = self.init_hidden(batch_size=len(lengths))
-        lstm_out, self.hidden = self.lstm(text, self.hidden)
+        hidden = self.init_hidden(batch_size=len(lengths))
+        lstm_out, new_hidden = self.lstm(text, hidden)
         lstm_out, new_lengths = pad_packed_sequence(lstm_out)
         emission = self.linner(lstm_out)
-        return emission
+        return emission, new_hidden[0].view(self.config.batch_size,-1)
 
 class BiLSTM_CRF_changed(nn.Module):
     def __init__(self, config, ntoken, ntag):
@@ -285,7 +288,7 @@ class BiLSTM_CRF_changed(nn.Module):
                 hidden_tag = hidden_tag.unsqueeze(1)
                 loss2 = -self.crflayer2(emission2, hidden_tag)
         if sub_tag is not None:
-            return lstm_out, loss1, new_hidden
+            return lstm_out, loss1 + loss2, new_hidden
         elif emission1 is not None:
             return lstm_out, new_hidden, self.crflayer1.decode(emission1, mask1)
         elif emission1 is None:
