@@ -16,14 +16,14 @@ pretrained_models   ：BERT与训练模型
 result              ：保存的结果、图像和对应的 p r f，以及结果的处理
 save_model          ：保存的模型
 vocab               ：提供的实体词典
-config              ：配置信息
-loss                ：dice_loss的实现
-model               ：模型
-module              ：模型训练预测等相关函数
-result_analysis     ：模型结果分析
-run                 ：模型训练入口
-test                ：测试
-tool                ：各种工具
+config.py           ：配置信息
+loss.py             ：dice_loss的实现
+model.py            ：模型
+module.py           ：模型训练预测等相关函数
+result_analysis.py  ：模型结果分析
+run.py              ：模型训练入口
+test.py             ：测试
+tool.py             ：各种工具
 ```
 
 ## data 各个文件及处理分析函数
