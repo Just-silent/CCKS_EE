@@ -115,7 +115,7 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 class BiLSTM_CRF(nn.Module):
-    def __init__(self, config, ntoken, ntag, hidden_ntag, vectors):
+    def __init__(self, config, ntoken, ntag, vectors):
         super(BiLSTM_CRF, self).__init__()
         self.config = config
         self.batch_size = config.batch_size
@@ -125,30 +125,25 @@ class BiLSTM_CRF(nn.Module):
         self.lstm = nn.LSTM(input_size=config.embedding_size, hidden_size=config.bi_lstm_hidden // 2,
                             num_layers=config.num_layers, bidirectional=True)
         self.linner = nn.Linear(config.bi_lstm_hidden, ntag)
-        self.linner_hidden_tag = nn.Linear(config.bi_lstm_hidden, hidden_ntag)
         self.crflayer = CRF(ntag)
-        self.crflayer_hidden_tag = CRF(hidden_ntag)
 
     def init_hidden(self, batch_size=None):
         if batch_size is None:
             batch_size = self.batch_size
         h0 = torch.zeros(self.config.num_layers * 2, batch_size, self.config.bi_lstm_hidden // 2).to(device)
         c0 = torch.zeros(self.config.num_layers * 2, batch_size, self.config.bi_lstm_hidden // 2).to(device)
-
         return h0, c0
 
     def forward(self, text, lengths):
         mask = torch.ne(text, self.config.pad_index)
-        emission, _ = self.lstm_forward(text, lengths)
+        emission, _= self.lstm_forward(text, lengths)
         return self.crflayer.decode(emission, mask)
 
-    def loss(self, text, lengths, tag, hidden_tag):
+    def loss(self, text, lengths, tag):
         mask = torch.ne(text, self.config.pad_index)
-        emission, new_hidden = self.lstm_forward(text, lengths)
-        emission_hidden_tag = self.linner_hidden_tag(new_hidden).unsqueeze(1)
-        hidden_tag_loss = -self.crflayer_hidden_tag(emission_hidden_tag, hidden_tag.permute(1, 0))
+        emission, _ = self.lstm_forward(text, lengths)
         crf_loss = -self.crflayer(emission, tag, mask=mask)
-        return crf_loss + hidden_tag_loss
+        return crf_loss
 
     def lstm_forward(self, text, lengths):
         text = self.embedding(text)
@@ -158,6 +153,20 @@ class BiLSTM_CRF(nn.Module):
         lstm_out, new_lengths = pad_packed_sequence(lstm_out)
         emission = self.linner(lstm_out)
         return emission, new_hidden[0].view(self.config.batch_size,-1)
+
+class BiLSTM_CRF_hidden_tag(BiLSTM_CRF):
+    def __init__(self, config, ntoken, ntag, hidden_ntag, vectors):
+        super(BiLSTM_CRF_hidden_tag, self).__init__(config, ntoken, ntag, vectors)
+        self.linner_hidden_tag = nn.Linear(config.bi_lstm_hidden, hidden_ntag)
+        self.crflayer_hidden_tag = CRF(hidden_ntag)
+
+    def loss(self, text, lengths, tag, hidden_tag):
+        mask = torch.ne(text, self.config.pad_index)
+        emission, new_hidden = self.lstm_forward(text, lengths)
+        emission_hidden_tag = self.linner_hidden_tag(new_hidden).unsqueeze(1)
+        hidden_tag_loss = -self.crflayer_hidden_tag(emission_hidden_tag, hidden_tag.permute(1, 0))
+        crf_loss = -self.crflayer(emission, tag, mask=mask)
+        return crf_loss + 20*hidden_tag_loss
 
 class BiLSTM_CRF_changed(nn.Module):
     def __init__(self, config, ntoken, ntag):
@@ -335,13 +344,13 @@ class BiLSTM_CRF_ATT(BiLSTM_CRF):
     def lstm_forward(self, text, lengths):
         text = self.embedding(text)
         text = pack_padded_sequence(text, lengths)
-        self.hidden = self.init_hidden()
-        lstm_out, self.hidden = self.lstm(text, self.hidden)
+        hidden = self.init_hidden()
+        lstm_out, new_hidden = self.lstm(text, hidden)
         lstm_out, new_lengths = pad_packed_sequence(lstm_out)
         output = lstm_out.permute(1, 0, 2)
         attn_out, _ = self.attention(output, output, output, None)
         attn_out = attn_out.permute(1, 0, 2)
-        return self.linner(attn_out)
+        return self.linner(attn_out), new_hidden[0].view(self.config.batch_size,-1)
 
 class CNN_CRF(nn.Module):
     def __init__(self, config, ntoken, ntag):
@@ -396,10 +405,8 @@ class BiLSTM_CRF_DAE(nn.Module):
     def init_hidden(self, batch_size=None):
         if batch_size is None:
             batch_size = self.batch_size
-
         h0 = torch.zeros(self.config.num_layers * 2, batch_size, self.config.bi_lstm_hidden // 2).to(device)
         c0 = torch.zeros(self.config.num_layers * 2, batch_size, self.config.bi_lstm_hidden // 2).to(device)
-
         return h0, c0
 
     def loss(self, x, sent_lengths, y):
@@ -410,7 +417,6 @@ class BiLSTM_CRF_DAE(nn.Module):
         lm_output = self.decode_lm(src_encoding)
         lm_loss = self.criterion(lm_output.view(-1, self.vocab_size), x.view(-1))
         return crf_loss + lm_loss
-
 
     def forward(self, x, sent_lengths):
         mask = torch.ne(x, self.config.pad_index)

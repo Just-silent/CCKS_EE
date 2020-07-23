@@ -8,10 +8,10 @@ import torch
 import numpy
 import random
 from tqdm import tqdm
-from config import config, device
-from tool import tool, logger
+from config import device
+from tool import Tool, logger
 from openpyxl import load_workbook
-from model import TransformerEncoderModel, BiLSTM_CRF, CNN_CRF, BiLSTM_CRF_ATT, TransformerEncoderModel_DAE
+from model import TransformerEncoderModel, BiLSTM_CRF, BiLSTM_CRF_hidden_tag, CNN_CRF, BiLSTM_CRF_ATT, TransformerEncoderModel_DAE, BiLSTM_CRF_DAE
 from sklearn.metrics import classification_report
 from result.predict_eval_process import format_result
 import torch.optim as optim
@@ -30,11 +30,32 @@ import warnings
 warnings.filterwarnings('ignore')
 
 class EE():
-    def __init__(self):
+    def __init__(self, config):
+        self.config = config
         self.model = None
         self.word_vocab = None
         self.tag_vocab = None
         self.train_dev_data = None
+        self.tool = Tool(self.config)
+
+    def init_model(self, config=None, ntoken=None, ntag=None, hidden_ntag=None, vectors=None):
+        model_name = config.model_name
+        models = {
+            'CNN_CRF':CNN_CRF,
+            'BiLSTM_CRF':BiLSTM_CRF,
+            'BiLSTM_CRF_ATT':BiLSTM_CRF_ATT,
+            'BiLSTM_CRF_DAE':BiLSTM_CRF_DAE,
+            'BiLSTM_CRF_hidden_tag':BiLSTM_CRF_hidden_tag,
+            'TransformerEncoderModel':TransformerEncoderModel,
+            'TransformerEncoderModel_DAE':TransformerEncoderModel_DAE
+        }
+        if hidden_ntag is not None:
+            model = models[model_name](config, ntoken, ntag, hidden_ntag, vectors).to(device)
+        elif model_name=='CNN_CRF':
+            model = models[model_name](config, ntoken, ntag).to(device)
+        else:
+            model = models[model_name](config, ntoken, ntag, vectors).to(device)
+        return model
 
     def train(self):
         max_f1 = -1
@@ -43,55 +64,52 @@ class EE():
         loss_list = []
         f1_list = []
         epoch_list = []
-        if not os.path.exists('./result/classification_report/{}'.format(config.experiment_name)):
-            os.mkdir('./result/classification_report/{}'.format(config.experiment_name))
-            os.mkdir('./result/picture/{}'.format(config.experiment_name))
-            os.mkdir('./result/data/{}'.format(config.experiment_name))
-            os.mkdir('./result/data/{}/test_format'.format(config.experiment_name))
+        if not os.path.exists('./result/classification_report/{}'.format(self.config.experiment_name)):
+            os.mkdir('./result/classification_report/{}'.format(self.config.experiment_name))
+            os.mkdir('./result/picture/{}'.format(self.config.experiment_name))
+            os.mkdir('./result/data/{}'.format(self.config.experiment_name))
+            os.mkdir('./result/data/{}/test_format'.format(self.config.experiment_name))
         logger.info('Loading data ...')
-        train_data = tool.load_data(config.train_path)
-        dev_data = tool.load_data(config.dev_path)
+        train_data = self.tool.load_data(self.config.train_path)
+        dev_data = self.tool.load_data(self.config.dev_path)
         logger.info('Finished load data')
         logger.info('Building vocab ...')
-        if config.is_pretrained_model:
-            with open(config.pretrained_vocab, 'r', encoding='utf-8') as vocab_file:
+        if self.config.is_pretrained_model:
+            with open(self.config.pretrained_vocab, 'r', encoding='utf-8') as vocab_file:
                 vocab_list = vocab_file.readlines()
-            self.word_vocab = tool.get_text_vocab(vocab_list)
+            self.word_vocab = self.tool.get_text_vocab(vocab_list)
         else:
-            self.word_vocab = tool.get_text_vocab(train_data, dev_data)
+            self.word_vocab = self.tool.get_text_vocab(train_data, dev_data)
         vectors = self.word_vocab.vectors
-        self.tag_vocab = tool.get_tag_vocab(train_data, dev_data)
-        self.hidden_tag_vocab = tool.get_hidden_tag_vocab(train_data, dev_data)
+        self.tag_vocab = self.tool.get_tag_vocab(train_data, dev_data)
         logger.info('Finished build vocab')
-        if config.model_name == 'BiLSTM_CRF':
-            model = BiLSTM_CRF(config, ntoken=len(self.word_vocab), ntag=len(self.tag_vocab), hidden_ntag=len(self.hidden_tag_vocab), vectors=vectors).to(device)
-        elif config.model_name == 'TransformerEncoderModel':
-            model = TransformerEncoderModel(config, ntoken=len(self.word_vocab), ntag=len(self.tag_vocab), vectors=vectors).to(device)
-        elif config.model_name == 'TransformerEncoderModel_DAE':
-            model = TransformerEncoderModel_DAE(config, ntoken=len(self.word_vocab), ntag=len(self.tag_vocab), vectors=vectors).to(device)
-        elif config.model_name == 'CNN_CRF':
-            model = CNN_CRF(config, ntoken=len(self.word_vocab), ntag=len(self.tag_vocab)).to(device)
-        elif config.model_name == 'BiLSTM_CRF_ATT':
-            model = BiLSTM_CRF_ATT(config, ntoken=len(self.word_vocab), ntag=len(self.tag_vocab), vectors=vectors).to(device)
+        if self.config.is_hidden_tag:
+            self.hidden_tag_vocab = self.tool.get_hidden_tag_vocab(train_data, dev_data)
+            model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), len(self.hidden_tag_vocab), vectors=vectors)
+        else:
+            model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), None, vectors=vectors)
         # model.load_state_dict(torch.load(config.model_path.format(config.experiment_name)))
         self.model = model
         logger.info('Building iterator ...')
-        train_iter = tool.get_iterator(train_data, batch_size=config.batch_size)
-        dev_iter = tool.get_iterator(dev_data, batch_size=config.batch_size)
+        train_iter = self.tool.get_iterator(train_data, batch_size=self.config.batch_size)
+        dev_iter = self.tool.get_iterator(dev_data, batch_size=self.config.batch_size)
         logger.info('Finished build iterator')
-        optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=1e-5)
+        optimizer = optim.Adam(model.parameters(), lr=self.config.learning_rate, weight_decay=1e-5)
         logger.info('Begining train ...')
-        for epoch in range(config.epoch):
+        for epoch in range(self.config.epoch):
             model.train()
             acc_loss = 0
             for index, iter in enumerate(tqdm(train_iter)):
-                if iter.tag.shape[1] == config.batch_size:
+                if iter.tag.shape[1] == self.config.batch_size:
                     optimizer.zero_grad()
                     text = iter.text[0]
                     tag = iter.tag
-                    hidden_tag = iter.hidden_tag
                     text_len = iter.text[1]
-                    loss = model.loss(text, text_len, tag, hidden_tag)
+                    if self.config.is_hidden_tag:
+                        hidden_tag = iter.hidden_tag
+                        loss = model.loss(text, text_len, tag, hidden_tag)
+                    else:
+                        loss = model.loss(text, text_len, tag)
                     acc_loss += loss.view(-1).cpu().data.tolist()[0]
                     loss.backward()
                     optimizer.step()
@@ -104,12 +122,12 @@ class EE():
                 max_f1 = f1
                 max_dict = entity_prf_dict['average']
                 max_report = entity_prf_dict
-                torch.save(model.state_dict(), './save_model/{}.pkl'.format(config.experiment_name))
+                torch.save(model.state_dict(), './save_model/{}.pkl'.format(self.config.experiment_name))
         logger.info('Finished train')
         logger.info('Max_f1 avg : {}'.format(max_dict))
-        tool.write_csv(max_report)
-        tool.show_1y(epoch_list, loss_list, 'loss')
-        tool.show_1y(epoch_list, f1_list, 'f1')
+        self.tool.write_csv(max_report)
+        self.tool.show_1y(epoch_list, loss_list, 'loss')
+        self.tool.show_1y(epoch_list, f1_list, 'f1')
         # 稍后处理
         # tool.show_labels_f1_bar_divide(max_report)
 
@@ -123,7 +141,7 @@ class EE():
                           'size': {'TP': 0, 'S': 0, 'G': 0, 'p': 0, 'r': 0, 'f1': 0},
                           'transfered_place': {'TP': 0, 'S': 0, 'G': 0, 'p': 0, 'r': 0, 'f1': 0}}
         for index, iter in enumerate(tqdm(dev_iter)):
-            if iter.tag.shape[1] == config.batch_size:
+            if iter.tag.shape[1] == self.config.batch_size:
                 text = iter.text[0]
                 tag = torch.transpose(iter.tag, 0, 1)
                 text_len = iter.text[1]
@@ -136,7 +154,7 @@ class EE():
                     tag_true_all.extend(tag_true)
                     tag_pred = [self.tag_vocab.itos[k] for k in result_list]
                     tag_pred_all.extend(tag_pred)
-                    entities = tool._evaluate(tag_true=tag_true, tag_pred=tag_pred)
+                    entities = self.tool._evaluate(tag_true=tag_true, tag_pred=tag_pred)
                     assert len(entities_total) == len(entities), 'entities_total: {} != entities: {}'.format(
                         len(entities_total), len(entities))
                     for entity in entities_total:
@@ -176,46 +194,41 @@ class EE():
         prf_dict = classification_report(tag_true_all, tag_pred_all, labels=labels, output_dict=True)
         return f1, prf_dict, entity_prf_dict
 
-    def predict_sentence(self, model_name=config.model_path.format(config.experiment_name)):
-        train_data = tool.load_data(config.train_path)
-        dev_data = tool.load_data(config.dev_path)
+    def predict_sentence(self, model_name=None):
+        if model_name is None:
+            model_name = self.config.model_path.format(self.config.experiment_name)
+        train_data = self.tool.load_data(self.config.train_path)
+        dev_data = self.tool.load_data(self.config.dev_path)
         logger.info('Finished load data')
         logger.info('Building vocab ...')
         model = None
-        if config.is_pretrained_model:
-            with open(config.pretrained_vocab, 'r', encoding='utf-8') as vocab_file:
+        if self.config.is_pretrained_model:
+            with open(self.config.pretrained_vocab, 'r', encoding='utf-8') as vocab_file:
                 vocab_list = vocab_file.readlines()
-            word_vocab = tool.get_text_vocab(vocab_list)
+            word_vocab = self.tool.get_text_vocab(vocab_list)
         else:
-            word_vocab = tool.get_text_vocab(train_data, dev_data)
+            word_vocab = self.tool.get_text_vocab(train_data, dev_data)
         vectors = word_vocab.vectors
-        tag_vocab = tool.get_tag_vocab(train_data, dev_data)
+        tag_vocab = self.tool.get_tag_vocab(train_data, dev_data)
         logger.info('Finished build vocab')
-        if config.model_name == 'BiLSTM_CRF':
-            model = BiLSTM_CRF(config, ntoken=len(self.word_vocab), ntag=len(self.tag_vocab), hidden_ntag=len(self.hidden_tag_vocab), vectors=vectors).to(device)
-        elif config.model_name == 'TransformerEncoderModel':
-            model = TransformerEncoderModel(config, ntoken=len(word_vocab), ntag=len(tag_vocab),
-                                            vectors=vectors).to(device)
-        elif config.model_name == 'TransformerEncoderModel_DAE':
-            model = TransformerEncoderModel_DAE(config, ntoken=len(word_vocab), ntag=len(tag_vocab),
-                                                vectors=vectors).to(device)
-        elif config.model_name == 'CNN_CRF':
-            model = CNN_CRF(config, ntoken=len(word_vocab), ntag=len(tag_vocab)).to(device)
-        elif config.model_name == 'BiLSTM_CRF_ATT':
-            model = BiLSTM_CRF_ATT(config, ntoken=len(word_vocab), ntag=len(tag_vocab), vectors=vectors).to(
-                device)
+        if self.config.is_hidden_tag:
+            self.hidden_tag_vocab = self.tool.get_hidden_tag_vocab(train_data, dev_data)
+            model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), len(self.hidden_tag_vocab),
+                                    vectors=vectors)
+        else:
+            model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), None, vectors=vectors)
         model.load_state_dict(torch.load(model_name))
         while True:
             print('请输入sentence：')
             sentence = input()
-            texts = [t for t in re.split('。', sentence) if t != '']
+            texts = self.tool.split_text(sentence)
             tag_pred = []
             sentence1 = []
             for text in texts:
                 sentence1.extend(text)
                 text = torch.tensor(numpy.array([word_vocab.stoi[word] for word in text], dtype='int64')).unsqueeze(
-                    1).expand(len(text), config.batch_size).to(device)
-                text_len = torch.tensor(numpy.array([len(text)], dtype='int64')).expand(config.batch_size).to(device)
+                    1).expand(len(text), self.config.batch_size).to(device)
+                text_len = torch.tensor(numpy.array([len(text)], dtype='int64')).expand(self.config.batch_size).to(device)
                 result = model(text, text_len)[0]
                 for k in result:
                     tag_pred.append(tag_vocab.itos[k])
@@ -247,34 +260,31 @@ class EE():
             print(sizes)
             print(transfered_places)
 
-    def predict_test(self, path=config.test_path, model_name=config.model_path.format(config.experiment_name),  save_path=config.unformated_val_path.format(config.experiment_name)):
-        train_data = tool.load_data(config.train_path)
-        dev_data = tool.load_data(config.dev_path)
+    def predict_test(self, path=None, model_name=None,  save_path=None):
+        if path is None:
+            path = self.config.test_path
+            model_name = self.config.model_path.format(self.config.experiment_name)
+            save_path = self.config.unformated_val_path.format(self.config.experiment_name)
+        train_data = self.tool.load_data(self.config.train_path)
+        dev_data = self.tool.load_data(self.config.dev_path)
         logger.info('Finished load data')
         logger.info('Building vocab ...')
         model = None
-        if config.is_pretrained_model:
-            with open(config.pretrained_vocab, 'r', encoding='utf-8') as vocab_file:
+        if self.config.is_pretrained_model:
+            with open(self.config.pretrained_vocab, 'r', encoding='utf-8') as vocab_file:
                 vocab_list = vocab_file.readlines()
-            word_vocab = tool.get_text_vocab(vocab_list)
+            word_vocab = self.tool.get_text_vocab(vocab_list)
         else:
-            word_vocab = tool.get_text_vocab(train_data, dev_data)
+            word_vocab = self.tool.get_text_vocab(train_data, dev_data)
         vectors = word_vocab.vectors
-        tag_vocab = tool.get_tag_vocab(train_data, dev_data)
+        tag_vocab = self.tool.get_tag_vocab(train_data, dev_data)
         logger.info('Finished build vocab')
-        if config.model_name == 'BiLSTM_CRF':
-            model = BiLSTM_CRF(config, ntoken=len(word_vocab), ntag=len(tag_vocab), vectors=vectors).to(
-                device)
-        elif config.model_name == 'TransformerEncoderModel':
-            model = TransformerEncoderModel(config, ntoken=len(word_vocab), ntag=len(tag_vocab),
-                                            vectors=vectors).to(device)
-        elif config.model_name == 'TransformerEncoderModel_DAE':
-            model = TransformerEncoderModel_DAE(config, ntoken=len(word_vocab), ntag=len(tag_vocab), vectors=vectors).to(device)
-        elif config.model_name == 'CNN_CRF':
-            model = CNN_CRF(config, ntoken=len(word_vocab), ntag=len(tag_vocab)).to(device)
-        elif config.model_name == 'BiLSTM_CRF_ATT':
-            model = BiLSTM_CRF_ATT(config, ntoken=len(word_vocab), ntag=len(tag_vocab), vectors=vectors).to(
-                device)
+        if self.config.is_hidden_tag:
+            self.hidden_tag_vocab = self.tool.get_hidden_tag_vocab(train_data, dev_data)
+            model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), len(self.hidden_tag_vocab),
+                                    vectors=vectors)
+        else:
+            model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), None, vectors=vectors)
         model.load_state_dict(torch.load(model_name))
         wb = load_workbook(filename=path)
         ws = wb['sheet1']
@@ -283,27 +293,13 @@ class EE():
             line_num+=2
             sentence = ws.cell(line_num,1).value
             sentence1=[]
-            # middle = sentence.find('。')
-            # sentence1 = sentence[:middle+1]
-            # sentence2 = sentence[middle+1:]
-            # text1 = torch.tensor(numpy.array([word_vocab.stoi[word] for word in sentence1], dtype='int64')).unsqueeze(1).expand(len(sentence1),config.batch_size).to(device)
-            # text1_len = torch.tensor(numpy.array([len(sentence1)], dtype='int64')).expand(config.batch_size).to(device)
-            # text2 = torch.tensor(numpy.array([word_vocab.stoi[word] for word in sentence2], dtype='int64')).unsqueeze(
-            #     1).expand(len(sentence2), config.batch_size).to(device)
-            # text2_len = torch.tensor(numpy.array([len(sentence2)], dtype='int64')).expand(config.batch_size).to(device)
-            # result1 = model(text1, text1_len)[0]
-            # result2 = model(text2, text2_len)[0]
-            # tag_pred = []
-            # for result in [result1, result2]:
-            #     for k in result:
-            #         tag_pred.append(tag_vocab.itos[k])
-            texts = [t for t in re.split('。', sentence) if t != '']
+            texts = self.tool.split_text(sentence)
             tag_pred = []
             for text in texts:
                 sentence1.extend(text)
                 text = torch.tensor(numpy.array([word_vocab.stoi[word] for word in text], dtype='int64')).unsqueeze(
-                    1).expand(len(text), config.batch_size).to(device)
-                text_len = torch.tensor(numpy.array([len(text)], dtype='int64')).expand(config.batch_size).to(device)
+                    1).expand(len(text), self.config.batch_size).to(device)
+                text_len = torch.tensor(numpy.array([len(text)], dtype='int64')).expand(self.config.batch_size).to(device)
                 result = model(text, text_len)[0]
                 for k in result:
                     tag_pred.append(tag_vocab.itos[k])
@@ -340,17 +336,17 @@ class EE():
         logger.info('Finished Predicting...')
 
     def test_format_result(self):
-        self.train_data = tool.load_data(config.train_path)
-        self.dev_data = tool.load_data(config.dev_path)
-        tag_vocab = tool.get_tag_vocab(self.train_data, self.dev_data)
-        self.predict_test(path=config.dev_path, save_path=config.test_unformated_val_path.format(config.experiment_name))
+        self.train_data = self.tool.load_data(self.config.train_path)
+        self.dev_data = self.tool.load_data(self.config.dev_path)
+        tag_vocab = self.tool.get_tag_vocab(self.train_data, self.dev_data)
+        self.predict_test(path=self.config.dev_path, save_path=self.config.test_unformated_val_path.format(self.config.experiment_name))
         tag_true = []
         tag_formated_pred = []
         tag_unformated_pred = []
-        format_result(path=config.test_unformated_val_path.format(config.experiment_name), save_path=config.test_formated_val_path.format(config.experiment_name))
-        dev_data = tool.load_data(config.dev_path)
-        formated_dev_data = tool.load_data(config.test_formated_val_path.format(config.experiment_name))
-        unformated_dev_data = tool.load_data(config.test_unformated_val_path.format(config.experiment_name))
+        format_result(path=self.config.test_unformated_val_path.format(self.config.experiment_name), save_path=self.config.test_formated_val_path.format(self.config.experiment_name))
+        dev_data = self.tool.load_data(self.config.dev_path)
+        formated_dev_data = self.tool.load_data(self.config.test_formated_val_path.format(self.config.experiment_name))
+        unformated_dev_data = self.tool.load_data(self.config.test_unformated_val_path.format(self.config.experiment_name))
         assert len(dev_data.examples) == len(
             unformated_dev_data.examples), 'train_dev_data:{} != unformated_train_dev_data:{}'.format(
             len(dev_data.examples), len(unformated_dev_data.examples))
@@ -380,9 +376,9 @@ class EE():
 
 if __name__ == '__main__':
     ee = EE()
-    ee.train()
+    # ee.train()
     # 可单独运行
     # ee.predict_test()
-    # ee.predict_sentence()
+    ee.predict_sentence()
     # 可单独运行
     # ee.test_format_result()

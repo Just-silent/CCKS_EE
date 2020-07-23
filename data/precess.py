@@ -4,9 +4,9 @@
 
 import re
 from tqdm import tqdm
-from tool import logger
 from config import config
 from random import shuffle
+from tool import logger, tool
 from openpyxl import load_workbook, Workbook
 
 def sub_text(file='train'):
@@ -87,7 +87,7 @@ def sub_text_more(file='train'):
     for i in range(max_row-1):
         line = i+2
         text = ws.cell(line,1).value
-        texts = [t for t in re.split('。', text) if t!='']
+        texts = tool.split_text(text)
         all_text.extend(texts)
         for j in range(3):
             if ws.cell(line,j+2).value is not None:
@@ -299,12 +299,12 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
                     j+=1
                 ws1.cell(line,i+1,new_sentence)
     wb1.save(path.format('_cleaned'))
-    logger.info('Finished cleaned data')
+    logger.info('Finished val cleaned data')
 
 if __name__ == '__main__':
     # data_clean()
-    seg_train()
+    # seg_train('./task2_train_reformat_cleaned.xlsx')
     files = ['train','dev']
     for file in files:
         sub_text_more(file)
-    data_clean_test()
+    # data_clean_test()

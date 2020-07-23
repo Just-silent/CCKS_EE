@@ -29,7 +29,7 @@ def write_val_true_pred():
         model = BiLSTM_CRF(config, ntoken=len(word_vocab), ntag=len(tag_vocab), vectors=vectors).to(
             device)
     elif config.model_name == 'TransformerEncoderModel':
-        model = TransformerEncoderModel(config, ntoken=len(word_vocab), ntag=len(tag_vocab), vectors=vectors).to(device)
+        model = TransformerEncoderModel(config, len(tag_vocab)).to(device)
     elif config.model_name == 'CNN_CRF':
         model = CNN_CRF(config, ntoken=len(word_vocab), ntag=len(tag_vocab)).to(device)
     elif config.model_name == 'BiLSTM_CRF_ATT':

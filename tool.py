@@ -2,6 +2,7 @@
 # @Author   : Just-silent
 # @time     : 2020/4/26 10:25
 import os
+import re
 import json
 import torch
 import logging
@@ -29,8 +30,8 @@ def y_tokenizer(tag: str):
 TEXT = Field(sequential=True, use_vocab=True, tokenize=x_tokenizer, include_lengths=True)
 TAG = Field(sequential=True, tokenize=y_tokenizer, use_vocab=True, is_target=True, pad_token=None)
 Hidden_TAG = Field(sequential=True, tokenize=y_tokenizer, use_vocab=True, is_target=True, pad_token=None)
-# Fields = [('text', TEXT), ('tag', TAG)]
-Fields = [('text', TEXT), ('tag', TAG), ('hidden_tag', Hidden_TAG)]
+Fields1 = [('text', TEXT), ('tag', TAG), ('hidden_tag', Hidden_TAG)]
+Fields2 = [('text', TEXT), ('tag', TAG)]
 
 
 def get_tag(sentence, origin_places, sizes, transfered_places):
@@ -45,47 +46,6 @@ def get_tag(sentence, origin_places, sizes, transfered_places):
                 end = start + len(column) - 1
                 if start==-1:
                     print('找不到')
-                # 不能直接找到
-                # size_chars = ['C', 'M', 'c', 'm', '*', '×', '.', ' ', 'X']
-                # if start == -1:
-                #     # 如果是一维数据（eg：35cm，而不是35cm*35cm）
-                #     if not column.__contains__('*') and not column.__contains__('×'):
-                #         num = ''
-                #         for x in column:
-                #             if x.isdigit():
-                #                 num+=x
-                #         start = sentence.find(num)
-                #         end = start
-                #         while end+1<len(sentence):
-                #             if sentence[end+1] in size_chars or sentence[end+1].isdigit():
-                #                 end+=1
-                #             else:
-                #                 break
-                #     # 如果是二维数据（eg：不是35cm，而是35cm*35cm）
-                #     elif column.__contains__('*') or column.__contains__('×'):
-                #         if column.__contains__('*'):
-                #             sub1, sub2 = column.split('*')
-                #         else:
-                #             sub1, sub2 = column.split('×')
-                #         num1 = ''
-                #         for x in sub1:
-                #             if x.isdigit() or x == '.':
-                #                 num1 += x
-                #         num2 = ''
-                #         for x in sub2:
-                #             if x.isdigit() or x == '.':
-                #                 num2 += x
-                #         start = sentence.find(num1)
-                #         start2 = sentence.find(num2)
-                #         if start2 - start >10:
-                #             print('距离过大，寻找错误')
-                #         else:
-                #             end = start
-                #             while True:
-                #                 if sentence[end+1] in size_chars or sentence[end+1].isdigit():
-                #                     end += 1
-                #                 else:
-                #                     break
                 tag[start] = 'B_{}'.format(tag_kinds[i])
                 start += 1
                 while start<=end:
@@ -118,64 +78,6 @@ def get_all_tag(sentence, origin_places, sizes, transfered_places):
                     end = start + len(column) -1
                     if start==-1:
                         print('未找到')
-                    # size_chars = ['C', 'M', 'c', 'm', '*', '×', '.', ' ', 'X']
-                    # flag = False
-                    # if not column.__contains__('*') and not column.__contains__('×'):
-                    #     num = ''
-                    #     for x in column:
-                    #         if x.isdigit():
-                    #             num += x
-                    #     starts = tool.find_all_index(sentence,num)
-                    #     if len(starts)>1:
-                    #         for start_i in starts:
-                    #             if start_i+6<len(sentence):
-                    #                 if 'm' in sentence[start_i:start_i+6] or 'M'in sentence[start_i:start_i+6]:
-                    #                     flag = True
-                    #                     start = start_i
-                    #                     end = start
-                    #                     while True:
-                    #                         if sentence[end+1] in size_chars or sentence[end+1].isdigit():
-                    #                             end += 1
-                    #                         else:
-                    #                             break
-                    #                     break
-                    #     elif len(starts)==1:
-                    #         start = starts[0]
-                    #         end = start
-                    #         if 'm' in sentence[start:start + 6] or 'M' in sentence[start:start + 6]:
-                    #             flag = True
-                    #             while True:
-                    #                 if sentence[end + 1] in size_chars or sentence[end + 1].isdigit():
-                    #                     end += 1
-                    #                 else:
-                    #                     break
-                    # elif column.__contains__('*') or column.__contains__('×'):
-                    #     if column.__contains__('*'):
-                    #         sub1, sub2 = column.split('*')
-                    #     else:
-                    #         sub1, sub2 = column.split('×')
-                    #     num1 = ''
-                    #     for x in sub1:
-                    #         if x.isdigit() or x == '.':
-                    #             num1 += x
-                    #     num2 = ''
-                    #     for x in sub2:
-                    #         if x.isdigit() or x == '.':
-                    #             num2 += x
-                    #     start = sentence.find(num1)
-                    #     start2 = sentence.find(num2)
-                    #     if start2 - start > 10 or start==-1 or start2==-1:
-                    #         pass
-                    #         # print('距离过大，寻找错误')
-                    #     else:
-                    #         flag = True
-                    #         end = start
-                    #         while end+1 <len(sentence):
-                    #             if sentence[end + 1] in size_chars or sentence[end + 1].isdigit():
-                    #                 end += 1
-                    #             else:
-                    #                 break
-                    # if flag:
                     tag[start] = 'B_{}'.format(tag_kinds[i])
                     start += 1
                     while start <= end:
@@ -198,12 +100,24 @@ class EEDataset(Dataset):
             if sentence is not None:
                 tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
                 sentence_list = [x for x in sentence]
-                # examples.append(Example.fromlist((sentence_list, tag_list), fields))
-                examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
+                if config.model_name == 'BiLSTM_CRF_hidden_tag':
+                    examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
+                else:
+                    examples.append(Example.fromlist((sentence_list, tag_list), fields))
+
         super(EEDataset, self).__init__(examples, fields, **kwargs)
 
 class Tool():
-    def load_data(self, path: str, fields=Fields):
+
+    def __init__(self, config=None):
+        if config is not None:
+            if config.is_hidden_tag:
+                self.Fields = Fields1
+            else:
+                self.Fields = Fields2
+
+    def load_data(self, path: str):
+        fields = self.Fields
         dataset = EEDataset(path, fields=fields)
         return dataset
 
@@ -294,7 +208,8 @@ class Tool():
         plt.grid(True)
         plt.legend(bbox_to_anchor=(1.0, 1), loc=1, borderaxespad=0.)
         plt.savefig('./result/picture/{}/{}.jpg'.format(config.experiment_name, name))
-        plt.show()
+        # 展示图片需要点击才能下一步
+        # plt.show()
 
     def write_csv(self, dict):
         # 这里补充相应的配置信息 1.model 2.细节信息 3.epoch
@@ -312,26 +227,6 @@ class Tool():
         dataframe = pd.DataFrame({'name': tag_list, 'precision': p_list, 'recall': r_list, 'f1': f1_list, 's_persent': s_list})
         # dataframe.to_csv('./result/classification_report/{}/report.csv'.format(config.experiment_name), index=False, sep=str(','))
         dataframe.to_excel('./result/classification_report/{}/report.xlsx'.format(config.experiment_name), sheet_name='sheet1')
-
-    def show_labels_f1_bar_divide(self, report):
-        x_name = []
-        support = []
-        f1 = []
-        sum = 0
-        triggers_dict = get_labels_proportion(path='./data/train.json', is_O=False)[0]
-        for index, key in enumerate(triggers_dict):
-            x_name.append(key)
-            f1.append(report[key]['f1-score'])
-            sum += triggers_dict[key]
-        for index, key in enumerate(triggers_dict):
-            support.append(round(triggers_dict[key] / sum, 2))
-        width = 20
-        for i in range(len(x_name) // width):
-            start = i * width
-            end = i * width + width
-            if end >= len(x_name):
-                end = len(x_name)
-            tool.labels_f1_bar(x_name[start:end], support[start:end], f1[start:end], 'analyze_{}'.format(i))
 
     def labels_f1_bar(self, x_name, support, f1, pict_name):
     # def labels_f1_bar(self, x_name, support, f1):
@@ -359,30 +254,6 @@ class Tool():
         plt.savefig('./result/picture/{}/{}.jpg'.format(config.experiment_name, pict_name))
         plt.show()
 
-    def get_weight(self, sto):
-        support = []
-        sum = 0
-        keys = list(sto.keys())
-        triggers_dict = get_labels_proportion(path='./data/train.json', is_O=False)[0]
-        for index, key in enumerate(triggers_dict):
-            # sum += triggers_dict[key]
-            if sum < triggers_dict[key]:
-                sum = triggers_dict[key]
-        for key in keys[2:]:
-            if key not in triggers_dict.keys():
-                # support.append(10.000)
-                support.append(1.000)
-            else:
-                # support.append(triggers_dict[key])
-                support.append(round(1.25-triggers_dict[key]/(2*sum), 3))
-        weight = torch.eye(len(support) + 2)
-        weight[0][0] = 1
-        weight[1][1] = 1
-        for i in range(len(support)):
-            i = i + 2
-            weight[i][i] = support[i - 2]
-        return weight
-
     def find_all_index(self, str1, str2):
         # 子串str2， 查找目标字符串str1
         starts = []
@@ -401,5 +272,28 @@ class Tool():
                 break
         return starts
 
-tool = Tool()
+    def split_text(self, sentence):
+        result1 = []
+        result2 = []
+        texts = re.split('。', sentence)
+        for i in range(len(texts)):
+            if texts[i] != '':
+                result1.append(texts[i]+'。')
+        for text in result1:
+            if text.__contains__(';'):
+                texts = re.split(';', text)
+                for i in range(len(texts)-1):
+                    if texts[i] != '':
+                        result2.append(texts[i]+';')
+                result2.append(texts[len(texts)-1])
+            elif text.__contains__('；'):
+                texts = re.split('；', text)
+                for i in range(len(texts)-1):
+                    if texts[i] != '':
+                        result2.append(texts[i] + '；')
+                result2.append(texts[len(texts)-1])
+            else:
+                result2.append(text)
+        return result2
 
+tool = Tool()

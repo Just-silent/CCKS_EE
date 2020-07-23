@@ -88,16 +88,5 @@ from tool import tool
 # x = max(list1)
 # print(list1[x:])
 
-# cuda cudnn
-# print(torch.cuda.is_available())
-# torch.backends.cudnn.enabled = False
-
-# create tensor
-# a=torch.tensor(np.log(1))
-# print(a)
-
-# extend
-l1 = [0,1,2]
-l2 = [2,2,3]
-l = l1.a
-print(l1.append(l2))
+# 测试切分句子函数
+# tool.split_text('1、支气管炎、肺气肿;2、左肺上叶肿块考虑周围性肺癌;左肺门淋巴结增大,考虑为转移;3、右肺中叶改变,考虑为发育不全;4、右侧肩胛下内侧弹力纤维瘤;5、气管憩室;6、甲状腺右叶低密度灶;胃窦壁增厚,请结合临床。左肺上叶可见类圆形肿块影,大小约2.0CM×3.0CM,CT值约32HU,增强CT扫描:三期CT值分别为43HU、53HU、75HU,可见部分支气管分支闭塞、狭窄;右肺中叶体积减小,见片状高密度影,内可见轻度扩张支气管影;两肺透过度增强,两肺野内见多发囊状透光区;两肺纹理稀疏、紊乱。左肺门淋巴结稍大,直径约1.4CM。纵隔内多发小淋巴结。两胸腔无积液征象。主动脉及冠脉钙化。右侧肩胛下内侧见片状软组织密度影,约为2.2CM×5.1CM。气管憩室。甲状腺右叶密度减低,强化程度低于正常甲状腺组织。胃窦壁增厚。')
