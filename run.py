@@ -6,13 +6,13 @@ from module import EE
 from config import config
 
 def ont_test():
-    config.experiment_name = 'test_init_model'  # 实验名称
+    config.experiment_name = 'BiLSTM_CRF'  # 实验名称
     config.model_name = 'BiLSTM_CRF'  # 模型名称
     config.is_vector = False  # 是否使用bert词向量
     config.is_hidden_tag = False  # 是否增加 子句hidden-> 是否有待抽取属性 的约束
 
     ee = EE(config)
-    ee.train()
+    # ee.train()
     ee.predict_test()
     # ee.predict_sentence()
     # ee.test_format_result()
@@ -37,4 +37,4 @@ def many_test():
         # ee.test_format_result()
 
 if __name__ == '__main__':
-    many_test()
+    ont_test()

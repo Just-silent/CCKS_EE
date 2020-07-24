@@ -147,15 +147,15 @@ class Tool():
                               sort_within_batch=sort_within_batch, device=device)
         return iterator
 
-    def _evaluate(self, tag_true, tag_pred):
+    def _evaluate(self, tag_true, tag_pred, sentence):
         """
         先对true进行还原成 [{}] 再对pred进行还原成 [{}]
         :param tag_true: list[]
         :param tag_pred: list[]
         :return:
         """
-        true_list = self._build_list_dict(_len=len(tag_true), _list=tag_true)
-        pred_list = self._build_list_dict(_len=len(tag_pred), _list=tag_pred)
+        true_list = self._build_list_dict(_len=len(tag_true), _list=tag_true, sentence=sentence)
+        pred_list = self._build_list_dict(_len=len(tag_pred), _list=tag_pred, sentence=sentence)
         entities = {'origin_place': {'TP': 0, 'S': 0, 'G': 0},
                     'size': {'TP': 0, 'S': 0, 'G': 0},
                     'transfered_place': {'TP': 0, 'S': 0, 'G': 0}}
@@ -163,34 +163,52 @@ class Tool():
             label_type = true['label_type']
             entities[label_type]['G'] += 1
         for pred in pred_list:
-            start_pos = pred['start_pos']
-            end_pos = pred['end_pos']
             label_type = pred['label_type']
+            label_name = pred['name']
             entities[label_type]['S'] += 1
             for true in true_list:
-                if label_type == true['label_type'] and start_pos == true['start_pos'] and end_pos == true['end_pos']:
+                if label_type == true['label_type'] and label_name == true['name']:
                     entities[label_type]['TP'] += 1
         return entities
 
-    def _build_list_dict(self, _len, _list):
+    def _build_list_dict(self, _len, _list, sentence):
         build_list = []
         tag_dict = {'origin_place': 'origin_place',
                     'size': 'size',
                     'transfered_place': 'transfered_place'}
-        for index, tag in zip(range(_len), _list):
-            if tag[0] == 'B':
-                label_type = tag[2:]
-                start_pos = index
-                if index < _len-1:
-                    end_pos = index + 1
-                    while _list[end_pos][0] == 'I' and _list[end_pos][2:] == label_type and end_pos<_len-1:
-                        end_pos += 1
+        # for index, tag in zip(range(_len), _list):
+            # if tag[0] == 'B':
+            #     label_type = tag[2:]
+            #     start_pos = index
+            #     if index < _len-1:
+            #         end_pos = index + 1
+            #         while _list[end_pos][0] == 'I' and _list[end_pos][2:] == label_type and end_pos<_len-1:
+            #             end_pos += 1
+            #     else:
+            #         end_pos = index
+            #     build_list.append({'start_pos': start_pos,
+            #                        'end_pos': end_pos,
+            #                        'label_type': tag_dict[label_type]})
+        i = 0
+        while i<_len:
+            if _list[i][0] == 'B':
+                label_type = _list[i][2:]
+                start_pos = i
+                end_pos = start_pos
+                if _list[end_pos+1][0] != 'I':
+                    end_pos+=1
                 else:
-                    end_pos = index
-                build_list.append({'start_pos': start_pos,
-                                   'end_pos': end_pos,
-                                   'label_type': tag_dict[label_type]})
-        return build_list
+                    while _list[end_pos+1][0] == 'I' and _list[end_pos+1][2:] == label_type and end_pos+1 < _len:
+                        end_pos += 1
+                i = end_pos+1
+                build_list.append({'name': ''.join(sentence[start_pos:end_pos+1]), 'label_type': tag_dict[label_type]})
+            else:
+                i+=1
+        result = []
+        for dict1 in build_list:
+            if dict1 not in result:
+                result.append(dict1)
+        return result
 
     def show_1y(self, list_x, list_y, name):
         fig, ax = plt.subplots()
@@ -211,7 +229,7 @@ class Tool():
         # 展示图片需要点击才能下一步
         # plt.show()
 
-    def write_csv(self, dict):
+    def write_csv(self, dict, label_dict):
         # 这里补充相应的配置信息 1.model 2.细节信息 3.epoch
         tag_list = []
         p_list = []
@@ -224,6 +242,10 @@ class Tool():
             r_list.append(dict[name]['recall'])
             f1_list.append(dict[name]['f1-score'])
             s_list.append(dict[name]['support'])
+        p_list.append(label_dict['precision'])
+        r_list.append(label_dict['recall'])
+        f1_list.append(label_dict['f1-score'])
+        s_list.append(label_dict['support'])
         dataframe = pd.DataFrame({'name': tag_list, 'precision': p_list, 'recall': r_list, 'f1': f1_list, 's_persent': s_list})
         # dataframe.to_csv('./result/classification_report/{}/report.csv'.format(config.experiment_name), index=False, sep=str(','))
         dataframe.to_excel('./result/classification_report/{}/report.xlsx'.format(config.experiment_name), sheet_name='sheet1')

@@ -61,6 +61,7 @@ class EE():
         max_f1 = -1
         max_dict = {}
         max_report = {}
+        label_report = {}
         loss_list = []
         f1_list = []
         epoch_list = []
@@ -88,7 +89,7 @@ class EE():
             model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), len(self.hidden_tag_vocab), vectors=vectors)
         else:
             model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), None, vectors=vectors)
-        # model.load_state_dict(torch.load(config.model_path.format(config.experiment_name)))
+        # model.load_state_dict(torch.load(self.config.model_path.format(self.config.experiment_name)))
         self.model = model
         logger.info('Building iterator ...')
         train_iter = self.tool.get_iterator(train_data, batch_size=self.config.batch_size)
@@ -120,12 +121,13 @@ class EE():
             logger.info('epoch:{}   loss:{}   weighted avg:{}'.format(epoch, acc_loss, report_dict['weighted avg']))
             if f1 > max_f1:
                 max_f1 = f1
+                label_report = report_dict['weighted avg']
                 max_dict = entity_prf_dict['average']
                 max_report = entity_prf_dict
                 torch.save(model.state_dict(), './save_model/{}.pkl'.format(self.config.experiment_name))
         logger.info('Finished train')
         logger.info('Max_f1 avg : {}'.format(max_dict))
-        self.tool.write_csv(max_report)
+        self.tool.write_csv(max_report, label_report)
         self.tool.show_1y(epoch_list, loss_list, 'loss')
         self.tool.show_1y(epoch_list, f1_list, 'f1')
         # 稍后处理
@@ -147,6 +149,8 @@ class EE():
                 text_len = iter.text[1]
                 result = model(text, text_len)
                 for i, result_list in zip(range(text.size(1)), result):
+                    text1 = text.permute(1,0)
+                    sentence = [self.word_vocab.itos[w] for w in text1[i][:text_len[i]]]
                     tag_list = tag[i][:text_len[i]]
                     assert len(tag_list) == len(result_list), 'tag_list: {} != result_list: {}'.format(len(tag_list),
                                                                                                        len(result_list))
@@ -154,13 +158,14 @@ class EE():
                     tag_true_all.extend(tag_true)
                     tag_pred = [self.tag_vocab.itos[k] for k in result_list]
                     tag_pred_all.extend(tag_pred)
-                    entities = self.tool._evaluate(tag_true=tag_true, tag_pred=tag_pred)
+                    entities = self.tool._evaluate(tag_true=tag_true, tag_pred=tag_pred, sentence=sentence)
                     assert len(entities_total) == len(entities), 'entities_total: {} != entities: {}'.format(
                         len(entities_total), len(entities))
                     for entity in entities_total:
                         entities_total[entity]['TP'] += entities[entity]['TP']
                         entities_total[entity]['S'] += entities[entity]['S']
                         entities_total[entity]['G'] += entities[entity]['G']
+                    a=0
         TP = 0
         S = 0
         G = 0
@@ -281,10 +286,10 @@ class EE():
         logger.info('Finished build vocab')
         if self.config.is_hidden_tag:
             self.hidden_tag_vocab = self.tool.get_hidden_tag_vocab(train_data, dev_data)
-            model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), len(self.hidden_tag_vocab),
+            model = self.init_model(self.config, len(word_vocab), len(tag_vocab), len(self.hidden_tag_vocab),
                                     vectors=vectors)
         else:
-            model = self.init_model(self.config, len(self.word_vocab), len(self.tag_vocab), None, vectors=vectors)
+            model = self.init_model(self.config, len(word_vocab), len(tag_vocab), None, vectors=vectors)
         model.load_state_dict(torch.load(model_name))
         wb = load_workbook(filename=path)
         ws = wb['sheet1']
@@ -378,7 +383,7 @@ if __name__ == '__main__':
     ee = EE()
     # ee.train()
     # 可单独运行
-    # ee.predict_test()
-    ee.predict_sentence()
+    ee.predict_test()
+    # ee.predict_sentence()
     # 可单独运行
     # ee.test_format_result()
