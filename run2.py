@@ -5,7 +5,7 @@
 from module import EE
 from config import config
 
-def ont_test():
+def one_test():
     config.experiment_name = 'BiLSTM_CRF_hidden_tag_1'  # 实验名称
     config.model_name = 'BiLSTM_CRF_hidden_tag'  # 模型名称
     config.is_vector = False  # 是否使用bert词向量
