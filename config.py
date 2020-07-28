@@ -4,7 +4,7 @@
 
 import torch
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 default_config = {
     'experiment_name' : 'test1',                                    # 实验名称
@@ -29,8 +29,9 @@ default_config = {
     'bi_lstm_hidden'  : 300,
     'num_layers' : 1,
     'pad_index': 1,
-    'epoch' : 64,
-    'batch_size' : 32,
+    'weight':1,
+    'epoch' : 100,
+    'batch_size' : 64,
     'chanel_num' : 1,
     'filter_num' : 100,
     'learning_rate' : 2e-4,

@@ -242,6 +242,7 @@ class Tool():
             r_list.append(dict[name]['recall'])
             f1_list.append(dict[name]['f1-score'])
             s_list.append(dict[name]['support'])
+        tag_list.append('label_averag')
         p_list.append(label_dict['precision'])
         r_list.append(label_dict['recall'])
         f1_list.append(label_dict['f1-score'])

@@ -166,7 +166,7 @@ class BiLSTM_CRF_hidden_tag(BiLSTM_CRF):
         emission_hidden_tag = self.linner_hidden_tag(new_hidden).unsqueeze(1)
         hidden_tag_loss = -self.crflayer_hidden_tag(emission_hidden_tag, hidden_tag.permute(1, 0))
         crf_loss = -self.crflayer(emission, tag, mask=mask)
-        return crf_loss + 20*hidden_tag_loss
+        return crf_loss + self.config.weight*hidden_tag_loss
 
 class BiLSTM_CRF_changed(nn.Module):
     def __init__(self, config, ntoken, ntag):
@@ -412,11 +412,11 @@ class BiLSTM_CRF_DAE(nn.Module):
     def loss(self, x, sent_lengths, y):
         mask = torch.ne(x, self.config.pad_index)
         emissions = self.lstm_forward(x, sent_lengths)
-        crf_loss = -self.crflayer(emissions, y, mask=mask) / y.size(1)
+        crf_loss = -self.crflayer(emissions, y, mask=mask)
         src_encoding = self.encode(x, sent_lengths)
         lm_output = self.decode_lm(src_encoding)
         lm_loss = self.criterion(lm_output.view(-1, self.vocab_size), x.view(-1))
-        return crf_loss + lm_loss
+        return crf_loss + self.config.weight*lm_loss
 
     def forward(self, x, sent_lengths):
         mask = torch.ne(x, self.config.pad_index)
@@ -507,7 +507,7 @@ class TransformerEncoderModel_DAE(nn.Module):
         return src_key_padding_mask
 
     def loss(self, src, text_len, tag, weight=6.4):
-        w = torch.cuda.FloatTensor(1).fill_(weight)
+        w = torch.cuda.FloatTensor(1).fill_(weight).to(device)
         mask_crf = torch.ne(src, 1)
         transformer_out = self.transformer_forward(src, text_len)
         src_encoding = self.encode(transformer_out)
