@@ -20,11 +20,11 @@ def one_test():
 
 def many_test():
     test_dict = {
-        'experiment_name' : ['BiLSTM_CRF_hidden_tag5', 'BiLSTM_CRF_hidden_tag10', 'BiLSTM_CRF_hidden_tag15', 'BiLSTM_CRF_hidden_tag20', 'BiLSTM_CRF_hidden_tag30', 'BiLSTM_CRF_hidden_tag35', 'BiLSTM_CRF_hidden_tag23', 'BiLSTM_CRF_hidden_tag27'],
-        'model_name' : ['BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag'],
-        'is_vector' : [False, False, False, False, False, False, False, False],
-        'is_hidden_tag' : [True, True, True, True, True, True, True, True],
-        'weight' : [5, 10, 15, 20, 30, 35, 23, 27]
+        'experiment_name' : ['BiLSTM_CRF_hidden_tag0.1', 'BiLSTM_CRF_hidden_tag0.3', 'BiLSTM_CRF_hidden_tag0.5', 'BiLSTM_CRF_hidden_tag0.7', 'BiLSTM_CRF_hidden_tag0.9'],
+        'model_name' : ['BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag'],
+        'is_vector' : [False, False, False, False, False],
+        'is_hidden_tag' : [True, True, True, True, True],
+        'weight' : [0.1, 0.3, 0.5, 0.7, 0.9]
     }
     for i in range(len(test_dict['experiment_name'])):
         config.experiment_name = test_dict['experiment_name'][i] # 实验名称

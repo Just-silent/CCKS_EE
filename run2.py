@@ -19,11 +19,11 @@ def one_test():
 
 def many_test():
     test_dict = {
-        'experiment_name' : ['TransformerEncoderModel_DAE10', 'TransformerEncoderModel_DAE15','TransformerEncoderModel_DAE23','TransformerEncoderModel_DAE27','TransformerEncoderModel_DAE33','TransformerEncoderModel_DAE37'],
-        'model_name' : ['TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE'],
-        'is_vector' : [False, False, False, False, False, False],
-        'is_hidden_tag' : [False, False, False, False, False, False],
-        'weight' : [10,15,23,27,33,37]
+        'experiment_name' : ['TransformerEncoderModel_DAE0.1','TransformerEncoderModel_DAE0.3', 'TransformerEncoderModel_DAE0.5','TransformerEncoderModel_DAE0.7', 'TransformerEncoderModel_DAE0.9'],
+        'model_name' : ['TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE'],
+        'is_vector' : [False, False, False, False, False],
+        'is_hidden_tag' : [False, False, False, False, False],
+        'weight' : [0.1,0.3,0.5,0.7,0.9]
     }
     for i in range(len(test_dict['experiment_name'])):
         config.experiment_name = test_dict['experiment_name'][i] # 实验名称
