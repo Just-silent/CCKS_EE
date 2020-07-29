@@ -33,6 +33,47 @@ Hidden_TAG = Field(sequential=True, tokenize=y_tokenizer, use_vocab=True, is_tar
 Fields1 = [('text', TEXT), ('tag', TAG), ('hidden_tag', Hidden_TAG)]
 Fields2 = [('text', TEXT), ('tag', TAG)]
 
+def get_all_tag_bioes(sentence, origin_places, sizes, transfered_places):
+    len_sentence = len(sentence)
+    tag = ['O' for i in range(len_sentence)]
+    tag_kinds = ['origin_place', 'size', 'transfered_place']
+    for i, columns in enumerate([origin_places, sizes, transfered_places]):
+        if columns is not None:
+            if i==0 or i==2:
+                for column in columns.split(','):
+                    starts = tool.find_all_index(sentence, column)
+                    ends = [start + len(column) -1 for start in starts]
+
+                    for j in range(len(starts)):
+                        x = starts[j]
+                        if starts[j] == ends[j]:
+                            tag[x] = 'S_{}'.format(tag_kinds[i])
+                        else:
+                            tag[x] = 'B_{}'.format(tag_kinds[i])
+                            x += 1
+                            while x < ends[j]:
+                                tag[x] = 'I_{}'.format(tag_kinds[i])
+                                x += 1
+                            while x == ends[j]:
+                                tag[x] = 'E_{}'.format(tag_kinds[i])
+                                x += 1
+            else:
+                for column in columns.split(','):
+                    start = 0
+                    end = 0
+                    start = sentence.find(column)
+                    end = start + len(column) -1
+                    if start==-1:
+                        print('未找到')
+                    tag[start] = 'B_{}'.format(tag_kinds[i])
+                    start += 1
+                    while start < end:
+                        tag[start] = 'I_{}'.format(tag_kinds[i])
+                        start += 1
+                    while start == end:
+                        tag[start] = 'E_{}'.format(tag_kinds[i])
+                        start += 1
+    return tag
 
 def get_tag(sentence, origin_places, sizes, transfered_places):
     len_sentence = len(sentence)
