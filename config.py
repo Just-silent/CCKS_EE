@@ -25,7 +25,7 @@ default_config = {
     'pretrained_vocab' : './pretrained_models/RoBERTa/vocab.txt',
     'is_vector' : False,                                            # 是否使用词向量
     'vector' : './vector/bert_vectors_768.txt',
-    'embedding_size' : 300,   # embedding dimension     预训练模型：hidden 1024/786   word2voc：300
+    'embedding_size' : 300,   # embedding dimension     预训练模型：hidden 1024/768   word2voc：300
     'bi_lstm_hidden'  : 300,
     'num_layers' : 1,
     'pad_index': 1,
