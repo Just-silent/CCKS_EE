@@ -116,16 +116,16 @@ class EE():
                     optimizer.step()
             f1, report_dict, entity_prf_dict = self.eval(dev_iter)
             loss_list.append(acc_loss)
-            f1_list.append(report_dict['weighted avg']['f1-score'])
+            f1_list.append(f1)
             epoch_list.append(epoch+1)
             logger.info('epoch:{}   loss:{}   weighted avg:{}'.format(epoch, acc_loss, report_dict['weighted avg']))
-            if report_dict['weighted avg']['f1-score'] > max_f1:
-                max_f1 = report_dict['weighted avg']['f1-score']
+            if f1 > max_f1:
+                max_f1 = f1
                 label_report = report_dict['weighted avg']
                 max_dict = entity_prf_dict['average']
                 max_report = entity_prf_dict
                 torch.save(model.state_dict(), './save_model/{}.pkl'.format(self.config.experiment_name))
-                logger.info('save best_model to/{}.pkl'.format(self.config.experiment_name))
+                logger.info('save best_model to {}.pkl'.format(self.config.experiment_name))
         logger.info('Finished train')
         logger.info('Max_f1 avg : {}'.format(label_report))
         self.tool.write_csv(max_report, label_report)
