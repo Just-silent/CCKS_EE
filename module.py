@@ -71,7 +71,7 @@ class EE():
             os.mkdir('./result/data/{}'.format(self.config.experiment_name))
             os.mkdir('./result/data/{}/test_format'.format(self.config.experiment_name))
         logger.info('Loading data ...')
-        train_data = self.tool.load_data(self.config.train_path)
+        train_data = self.tool.load_data(self.config.train_path, self.config.is_bioes)
         dev_data = self.tool.load_data(self.config.dev_path)
         logger.info('Finished load data')
         logger.info('Building vocab ...')
@@ -125,9 +125,8 @@ class EE():
                 max_dict = entity_prf_dict['average']
                 max_report = entity_prf_dict
                 torch.save(model.state_dict(), './save_model/{}.pkl'.format(self.config.experiment_name))
-                logger.info('save best_model to {}.pkl'.format(self.config.experiment_name))
         logger.info('Finished train')
-        logger.info('Max_f1 avg : {}'.format(label_report))
+        logger.info('Max_f1 avg : {}'.format(max_dict))
         self.tool.write_csv(max_report, label_report)
         self.tool.show_1y(epoch_list, loss_list, 'loss')
         self.tool.show_1y(epoch_list, f1_list, 'f1')
@@ -159,7 +158,7 @@ class EE():
                     tag_true_all.extend(tag_true)
                     tag_pred = [self.tag_vocab.itos[k] for k in result_list]
                     tag_pred_all.extend(tag_pred)
-                    entities = self.tool._evaluate(tag_true=tag_true, tag_pred=tag_pred, sentence=sentence)
+                    entities = self.tool._evaluate(self.config.is_bioes, tag_true=tag_true, tag_pred=tag_pred, sentence=sentence)
                     assert len(entities_total) == len(entities), 'entities_total: {} != entities: {}'.format(
                         len(entities_total), len(entities))
                     for entity in entities_total:

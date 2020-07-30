@@ -126,8 +126,66 @@ def get_all_tag(sentence, origin_places, sizes, transfered_places):
                         start += 1
     return tag
 
+def get_all_tag_size(sentence, origin_places, sizes, transfered_places):
+    # 在原句子查找所有的size格式的位置
+    chars = ['.', '*', '×', 'X', 'x', 'c', 'C', 'm', 'M']
+    i = 0
+    starts = []
+    ends = []
+    if sizes is not None:
+        sizes_s = sizes.split(',')
+    kth_sizes = []
+    kth = 0
+    while i<len(sentence):
+        if sentence[i] in chars or sentence[i].isdigit():
+            S_start = i
+            while i+1<len(sentence) and (sentence[i+1] in chars or sentence[i+1].isdigit()):
+                i+=1
+            if sentence[S_start:i+1].__contains__('M') or sentence[S_start:i+1].__contains__('m'):
+                starts.append(S_start)
+                ends.append(i)
+                if sizes is not None and sentence[S_start:i+1] in sizes_s:
+                    kth_sizes.append(kth)
+                kth+=1
+            i+=1
+        else:
+            i+=1
+    sentence.replace('$','')
+    new_sentence = [c for c in sentence]
+    width = 0
+    if len(starts)!=0:
+        for i in range(len(starts)):
+            start_i = starts[i]-width
+            for j in range(ends[i]-starts[i]):
+                del new_sentence[start_i]
+            new_sentence[start_i] = '$'
+            width+=ends[i]-starts[i]
+            a=0
+    sentence = ''.join(new_sentence)
+    # 用$替换原size，获得新句子，并找到标注的原位置    len_sentence = len(sentence)
+    tag = ['O' for i in range(len(sentence))]
+    index_s = tool.find_all_index(sentence,'$')
+    if len(kth_sizes) != 0:
+        for i in range(len(kth_sizes)):
+            tag[index_s[kth_sizes[i]]] = 'E-size'
+    tag_kinds = ['origin_place', 'size', 'transfered_place']
+    for i, columns in enumerate([origin_places, sizes, transfered_places]):
+        if columns is not None:
+            if i==0 or i==2:
+                for column in columns.split(','):
+                    starts = tool.find_all_index(sentence, column)
+                    ends = [start + len(column) -1 for start in starts]
+                    for j in range(len(starts)):
+                        x = starts[j]
+                        tag[x] = 'B_{}'.format(tag_kinds[i])
+                        x += 1
+                        while x <= ends[j]:
+                            tag[x] = 'I_{}'.format(tag_kinds[i])
+                            x += 1
+    return tag, [c for c in sentence]
+
 class EEDataset(Dataset):
-    def __init__(self, path, fields, encoding="utf-8", **kwargs):
+    def __init__(self, path, is_bioes, fields, encoding="utf-8", **kwargs):
         examples = []
         wb = load_workbook(filename=path)
         ws = wb['sheet1']
@@ -139,8 +197,15 @@ class EEDataset(Dataset):
             if not (origin_places is None and sizes is None and transfered_places is None):
                 hidden_tag = [1]
             if sentence is not None:
-                tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
-                sentence_list = [x for x in sentence]
+                if is_bioes:
+                    # size占位符
+                    tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
+                    # size非占位符
+                    # tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
+                    # sentence_list = [x for x in sentence]
+                else:
+                    tag_list = get_all_tag()
+                    sentence_list = [x for x in sentence]
                 if config.model_name == 'BiLSTM_CRF_hidden_tag':
                     examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
                 else:
@@ -157,9 +222,9 @@ class Tool():
             else:
                 self.Fields = Fields2
 
-    def load_data(self, path: str):
+    def load_data(self, path: str, is_bioes):
         fields = self.Fields
-        dataset = EEDataset(path, fields=fields)
+        dataset = EEDataset(path, is_bioes, fields=fields)
         return dataset
 
     def get_text_vocab(self, *dataset):
@@ -188,15 +253,15 @@ class Tool():
                               sort_within_batch=sort_within_batch, device=device)
         return iterator
 
-    def _evaluate(self, tag_true, tag_pred, sentence):
+    def _evaluate(self, is_bioes, tag_true, tag_pred, sentence):
         """
         先对true进行还原成 [{}] 再对pred进行还原成 [{}]
         :param tag_true: list[]
         :param tag_pred: list[]
         :return:
         """
-        true_list = self._build_list_dict(_len=len(tag_true), _list=tag_true, sentence=sentence)
-        pred_list = self._build_list_dict(_len=len(tag_pred), _list=tag_pred, sentence=sentence)
+        true_list = self._build_list_dict(is_bioes, _len=len(tag_true), _list=tag_true, sentence=sentence)
+        pred_list = self._build_list_dict(is_bioes, _len=len(tag_pred), _list=tag_pred, sentence=sentence)
         entities = {'origin_place': {'TP': 0, 'S': 0, 'G': 0},
                     'size': {'TP': 0, 'S': 0, 'G': 0},
                     'transfered_place': {'TP': 0, 'S': 0, 'G': 0}}
@@ -212,39 +277,45 @@ class Tool():
                     entities[label_type]['TP'] += 1
         return entities
 
-    def _build_list_dict(self, _len, _list, sentence):
+    def _build_list_dict(self, is_bioes, _len, _list, sentence):
         build_list = []
         tag_dict = {'origin_place': 'origin_place',
                     'size': 'size',
                     'transfered_place': 'transfered_place'}
-        # for index, tag in zip(range(_len), _list):
-            # if tag[0] == 'B':
-            #     label_type = tag[2:]
-            #     start_pos = index
-            #     if index < _len-1:
-            #         end_pos = index + 1
-            #         while _list[end_pos][0] == 'I' and _list[end_pos][2:] == label_type and end_pos<_len-1:
-            #             end_pos += 1
-            #     else:
-            #         end_pos = index
-            #     build_list.append({'start_pos': start_pos,
-            #                        'end_pos': end_pos,
-            #                        'label_type': tag_dict[label_type]})
         i = 0
-        while i<_len:
-            if _list[i][0] == 'B':
-                label_type = _list[i][2:]
-                start_pos = i
-                end_pos = start_pos
-                if _list[end_pos+1][0] != 'I':
-                    end_pos+=1
-                else:
-                    while _list[end_pos+1][0] == 'I' and _list[end_pos+1][2:] == label_type and end_pos+1 < _len:
+        if is_bioes:
+            while i < _len:
+                if _list[i][0] == 'B':
+                    label_type = _list[i][2:]
+                    start_pos = i
+                    end_pos = start_pos
+                    while (_list[end_pos + 1][0] == 'I' or _list[end_pos + 1][0] == 'E') and _list[end_pos + 1][
+                                                           2:] == label_type and end_pos + 1 < _len:
                         end_pos += 1
-                i = end_pos+1
-                build_list.append({'name': ''.join(sentence[start_pos:end_pos+1]), 'label_type': tag_dict[label_type]})
-            else:
-                i+=1
+                    i = end_pos + 1
+                    build_list.append(
+                        {'name': ''.join(sentence[start_pos:end_pos + 1]), 'label_type': tag_dict[label_type]})
+                elif _list[i][0] == 'E':
+                    build_list.append(
+                        {'name': ''.join(sentence[i:i + 1]), 'label_type': _list[i][2:]})
+                    i+=1
+                else:
+                    i+=1
+        else:
+            while i<_len:
+                if _list[i][0] == 'B':
+                    label_type = _list[i][2:]
+                    start_pos = i
+                    end_pos = start_pos
+                    if _list[end_pos+1][0] != 'I':
+                        end_pos+=1
+                    else:
+                        while _list[end_pos+1][0] == 'I' and _list[end_pos+1][2:] == label_type and end_pos+1 < _len:
+                            end_pos += 1
+                    i = end_pos+1
+                    build_list.append({'name': ''.join(sentence[start_pos:end_pos+1]), 'label_type': tag_dict[label_type]})
+                else:
+                    i+=1
         result = []
         for dict1 in build_list:
             if dict1 not in result:

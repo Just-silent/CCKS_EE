@@ -4,7 +4,7 @@
 
 import torch
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 default_config = {
     'experiment_name' : 'test1',                                    # 实验名称
@@ -19,13 +19,14 @@ default_config = {
     'test_unformated_val_path' : './result/data/{}/test_format/unformated_val.xlsx',
     'model_name' : 'BiLSTM_CRF_hidden_tag',# CNN_CRF、BiLSTM_CRF、BiLSTM_CRF_ATT、BiLSTM_CRF_DAE、BiLSTM_CRF_hidden_tag、TransformerEncoderModel、TransformerEncoderModel_DAE
     'is_hidden_tag' : False,                                        # 是否增加 子句hidden-> 是否有待抽取属性 的约束
+    'is_bioes' : False,
     'is_pretrained_model' : False,                                  # 是否使用预训练模型
     'pretrained_config' : './pretrained_models/RoBERTa/config.json',
     'pretrained_model' : './pretrained_models/RoBERTa/pytorch_model.bin',
     'pretrained_vocab' : './pretrained_models/RoBERTa/vocab.txt',
     'is_vector' : False,                                            # 是否使用词向量
     'vector' : './vector/bert_vectors_768.txt',
-    'embedding_size' : 300,   # embedding dimension     预训练模型：hidden 1024/768   word2voc：300
+    'embedding_size' : 300,   # embedding dimension     预训练模型：hidden 1024/786   word2voc：300
     'bi_lstm_hidden'  : 300,
     'num_layers' : 1,
     'pad_index': 1,
