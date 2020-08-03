@@ -19,11 +19,12 @@ def one_test():
 
 def many_test():
     test_dict = {
-        'experiment_name' : ['TransformerEncoderModel_DAE0.1','TransformerEncoderModel_DAE0.3', 'TransformerEncoderModel_DAE0.5','TransformerEncoderModel_DAE0.7', 'TransformerEncoderModel_DAE0.9'],
-        'model_name' : ['TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE', 'TransformerEncoderModel_DAE'],
-        'is_vector' : [False, False, False, False, False],
-        'is_hidden_tag' : [False, False, False, False, False],
-        'weight' : [0.1,0.3,0.5,0.7,0.9]
+        'experiment_name' : ['TransformerEncoderModel_unclean_bio_size_replace'],
+        'model_name' : ['TransformerEncoderModel'],
+        'is_vector' : [False],
+        'is_hidden_tag' : [False],
+        'weight' : [0.1],
+        'is_bioes' : [True]
     }
     for i in range(len(test_dict['experiment_name'])):
         config.experiment_name = test_dict['experiment_name'][i] # 实验名称
@@ -31,13 +32,14 @@ def many_test():
         config.is_vector = test_dict['is_vector'][i] # 是否使用bert词向量
         config.is_hidden_tag = test_dict['is_hidden_tag'][i] # 是否增加 子句hidden-> 是否有待抽取属性 的约束
         config.weight = test_dict['weight'][i]
+        config.is_bioes = test_dict['is_bioes'][i]
 
         ee = EE(config)
         ee.train()
-        ee.predict_test()
+        # ee.predict_test()
         # ee.predict_sentence()
         # ee.test_format_result()
 
 if __name__ == '__main__':
-    # many_test()
-    one_test()
+    many_test()
+    # one_test()

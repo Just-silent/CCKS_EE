@@ -72,7 +72,7 @@ class EE():
             os.mkdir('./result/data/{}/test_format'.format(self.config.experiment_name))
         logger.info('Loading data ...')
         train_data = self.tool.load_data(self.config.train_path, self.config.is_bioes)
-        dev_data = self.tool.load_data(self.config.dev_path)
+        dev_data = self.tool.load_data(self.config.dev_path, self.config.is_bioes)
         logger.info('Finished load data')
         logger.info('Building vocab ...')
         if self.config.is_pretrained_model:
@@ -270,8 +270,8 @@ class EE():
             path = self.config.test_path
             model_name = self.config.model_path.format(self.config.experiment_name)
             save_path = self.config.unformated_val_path.format(self.config.experiment_name)
-        train_data = self.tool.load_data(self.config.train_path)
-        dev_data = self.tool.load_data(self.config.dev_path)
+        train_data = self.tool.load_data(self.config.train_path, self.config.is_bioes)
+        dev_data = self.tool.load_data(self.config.dev_path, self.config.is_bioes)
         logger.info('Finished load data')
         logger.info('Building vocab ...')
         model = None

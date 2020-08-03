@@ -4,10 +4,10 @@
 
 import torch
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 default_config = {
-    'experiment_name' : 'test1',                                    # 实验名称
+    'experiment_name' : 'TransformerEncoderModel_unclean_bioes',                                    # 实验名称
     'model_path': './save_model/{}.pkl',                            # 保存模型位置
     'analysis_path' : './result/data/{}/analysis.xlsx',
     'train_path' : './data/sub_cut_train.xlsx',

@@ -199,12 +199,12 @@ class EEDataset(Dataset):
             if sentence is not None:
                 if is_bioes:
                     # size占位符
-                    tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
+                    # tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
                     # size非占位符
-                    # tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
-                    # sentence_list = [x for x in sentence]
+                    tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
+                    sentence_list = [x for x in sentence]
                 else:
-                    tag_list = get_all_tag()
+                    tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
                     sentence_list = [x for x in sentence]
                 if config.model_name == 'BiLSTM_CRF_hidden_tag':
                     examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
@@ -289,8 +289,8 @@ class Tool():
                     label_type = _list[i][2:]
                     start_pos = i
                     end_pos = start_pos
-                    while (_list[end_pos + 1][0] == 'I' or _list[end_pos + 1][0] == 'E') and _list[end_pos + 1][
-                                                           2:] == label_type and end_pos + 1 < _len:
+                    while end_pos + 1 < _len and (_list[end_pos + 1][0] == 'I' or _list[end_pos + 1][0] == 'E') and _list[end_pos + 1][
+                                                           2:] == label_type:
                         end_pos += 1
                     i = end_pos + 1
                     build_list.append(
@@ -310,7 +310,7 @@ class Tool():
                     if _list[end_pos+1][0] != 'I':
                         end_pos+=1
                     else:
-                        while _list[end_pos+1][0] == 'I' and _list[end_pos+1][2:] == label_type and end_pos+1 < _len:
+                        while end_pos+1 < _len and _list[end_pos+1][0] == 'I' and _list[end_pos+1][2:] == label_type:
                             end_pos += 1
                     i = end_pos+1
                     build_list.append({'name': ''.join(sentence[start_pos:end_pos+1]), 'label_type': tag_dict[label_type]})
