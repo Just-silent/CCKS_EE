@@ -167,7 +167,7 @@ def get_all_tag_size(sentence, origin_places, sizes, transfered_places):
     index_s = tool.find_all_index(sentence,'$')
     if len(kth_sizes) != 0:
         for i in range(len(kth_sizes)):
-            tag[index_s[kth_sizes[i]]] = 'E-size'
+            tag[index_s[kth_sizes[i]]] = 'E_size'
     tag_kinds = ['origin_place', 'size', 'transfered_place']
     for i, columns in enumerate([origin_places, sizes, transfered_places]):
         if columns is not None:
@@ -179,10 +179,11 @@ def get_all_tag_size(sentence, origin_places, sizes, transfered_places):
                         x = starts[j]
                         tag[x] = 'B_{}'.format(tag_kinds[i])
                         x += 1
-                        while x <= ends[j]:
+                        while x < ends[j]:
                             tag[x] = 'I_{}'.format(tag_kinds[i])
                             x += 1
-    return tag, [c for c in sentence]
+                        tag[ends[j]] = 'E_{}'.format(tag_kinds[i])
+    return tag, new_sentence
 
 class EEDataset(Dataset):
     def __init__(self, path, is_bioes, fields, encoding="utf-8", **kwargs):
@@ -199,13 +200,15 @@ class EEDataset(Dataset):
             if sentence is not None:
                 if is_bioes:
                     # size占位符
-                    # tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
+                    tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
                     # size非占位符
-                    tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
-                    sentence_list = [x for x in sentence]
+                    # tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
+                    # sentence_list = [x for x in sentence]
                 else:
-                    tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
-                    sentence_list = [x for x in sentence]
+                    # size占位符
+                    tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
+                    # tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
+                    # sentence_list = [x for x in sentence]
                 if config.model_name == 'BiLSTM_CRF_hidden_tag':
                     examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
                 else:
