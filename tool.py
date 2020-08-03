@@ -271,9 +271,11 @@ class Tool():
         for pred in pred_list:
             label_type = pred['label_type']
             label_name = pred['name']
+            label_start = pred['start_pos']
+            label_end = pred['end_pos']
             entities[label_type]['S'] += 1
             for true in true_list:
-                if label_type == true['label_type'] and label_name == true['name']:
+                if label_type == true['label_type'] and label_name == true['name'] and label_start == pred['start_pos'] and label_end == pred['end_pos']:
                     entities[label_type]['TP'] += 1
         return entities
 
@@ -292,12 +294,12 @@ class Tool():
                     while end_pos + 1 < _len and (_list[end_pos + 1][0] == 'I' or _list[end_pos + 1][0] == 'E') and _list[end_pos + 1][
                                                            2:] == label_type:
                         end_pos += 1
-                    i = end_pos + 1
                     build_list.append(
-                        {'name': ''.join(sentence[start_pos:end_pos + 1]), 'label_type': tag_dict[label_type]})
+                        {'name': ''.join(sentence[start_pos:end_pos + 1]), 'start_pos':start_pos, 'end_pos':end_pos, 'label_type': tag_dict[label_type]})
+                    i = end_pos + 1
                 elif _list[i][0] == 'E':
                     build_list.append(
-                        {'name': ''.join(sentence[i:i + 1]), 'label_type': _list[i][2:]})
+                        {'name': ''.join(sentence[i:i + 1]), 'start_pos':i, 'end_pos':i, 'label_type': _list[i][2:]})
                     i+=1
                 else:
                     i+=1
@@ -312,8 +314,8 @@ class Tool():
                     else:
                         while end_pos+1 < _len and _list[end_pos+1][0] == 'I' and _list[end_pos+1][2:] == label_type:
                             end_pos += 1
+                    build_list.append({'name': ''.join(sentence[start_pos:end_pos+1]), 'start_pos':start_pos, 'end_pos':end_pos, 'label_type': tag_dict[label_type]})
                     i = end_pos+1
-                    build_list.append({'name': ''.join(sentence[start_pos:end_pos+1]), 'label_type': tag_dict[label_type]})
                 else:
                     i+=1
         result = []
