@@ -137,12 +137,19 @@ def data_clean(path='./task2_train_reformat{}.xlsx'):
         line = i + 2
         new_sentence = ''
         chars = ['.','*','×','X','x','c','C','m','M']
+        o_chars = ['_x0004_', '�', ':', ',', ';']
+        t_chars = ['', '', '：', '，', '；']
         for i in range(4):
             if i==0:
                 if '检测值' in ws.cell(line,i+1).value:
-                    new_sentence = ws.cell(line,i+1).value.replace('_x0004_','').replace('�','')
+                    new_sentence = ws.cell(line, i + 1).value
+                    for i in range(len(o_chars)):
+                        new_sentence = new_sentence.replace(o_chars[i], t_chars[i])
                 else:
-                    new_sentence = ws.cell(line, i + 1).value.replace('_x0004_', '').replace('�', '').replace(' ', '')
+                    new_sentence = ws.cell(line, i+1).value.replace(' ', '')
+                    for i in range(len(o_chars)):
+                        new_sentence = new_sentence.replace(o_chars[i], t_chars[i])
+                i = 0
                 j = 0
                 while j < len(new_sentence):
                     while j < len(new_sentence) and not new_sentence[j].isdigit():
@@ -255,12 +262,20 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
         line = i + 2
         new_sentence = ''
         chars = ['.','*','×','X','x','c','C','m','M']
+        o_chars = ['_x0004_', '�', ':', ',', ';']
+        t_chars = ['', '', '：', '，', '；']
         for i in range(4):
             if i==0:
-                if '检测值' in ws.cell(line,i+1).value:
-                    new_sentence = ws.cell(line,i+1).value.replace('_x0004_','').replace('�','')
+                if '检测值' in ws.cell(line, i + 1).value:
+                    new_sentence = ws.cell(line, i + 1).value
+                    for i in range(len(o_chars)):
+                        new_sentence = new_sentence.replace(o_chars[i], t_chars[i])
+                    ws.cell(line, i + 1).value = new_sentence
                 else:
-                    new_sentence = ws.cell(line, i + 1).value.replace('_x0004_', '').replace('�', '').replace(' ', '')
+                    new_sentence = ws.cell(line, i+1).value.replace(' ', '')
+                    for i in range(len(o_chars)):
+                        new_sentence = new_sentence.replace(o_chars[i], t_chars[i])
+                    ws.cell(line, i + 1).value = new_sentence
                 j = 0
                 while j < len(new_sentence):
                     while j < len(new_sentence) and not new_sentence[j].isdigit():
@@ -302,9 +317,9 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
     logger.info('Finished val cleaned data')
 
 if __name__ == '__main__':
-    # data_clean()
-    seg_train('./task2_train_reformat.xlsx')
+    data_clean()
+    seg_train('./task2_train_reformat_cleaned.xlsx')
     files = ['train','dev']
     for file in files:
         sub_text_more(file)
-    # data_clean_test()
+    data_clean_test()
