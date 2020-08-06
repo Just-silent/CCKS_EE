@@ -6,7 +6,7 @@ from module import EE
 from config import config
 
 def one_test():
-    config.experiment_name = 'TransformerEncoderModel_unclean_bio_unbert'  # 实验名称
+    config.experiment_name = 'TransformerEncoderModel_clean_bio_unbert'  # 实验名称
     config.model_name = 'TransformerEncoderModel'  # 模型名称
     config.is_vector = False  # 是否使用bert词向量
     config.is_hidden_tag = False  # 是否增加 子句hidden-> 是否有待抽取属性 的约束
