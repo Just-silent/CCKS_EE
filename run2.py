@@ -18,21 +18,26 @@ def one_test():
     # ee.test_format_result()
 
 def many_test():
+    # data_unclean
+    # data_clean
+    # bioes
+    # bio
+    # replace_size
+    # CNN+
+    # bert
     test_dict = {
-        'experiment_name' : ['TransformerEncoderModel_unclean_bio_size_replace'],
-        'model_name' : ['TransformerEncoderModel'],
-        'is_vector' : [False],
-        'is_hidden_tag' : [False],
-        'weight' : [0.1],
-        'is_bioes' : [True]
+        'experiment_name' : ['TransformerEncoderModel_clean_bio_unbert', 'TransformerEncoderModel_clean_bioes_unbert', 'TransformerEncoderModel_clean_bio_bert', 'TransformerEncoderModel_clean_bioes_bert'],
+        'model_name' : ['TransformerEncoderModel','TransformerEncoderModel','TransformerEncoderModel','TransformerEncoderModel'],
+        'is_vector' : [False, False, True, True],
+        'is_bioes' : [False, True, False, True],
+        'embedding_size' : [768, 768, 768, 768],
     }
     for i in range(len(test_dict['experiment_name'])):
         config.experiment_name = test_dict['experiment_name'][i] # 实验名称
         config.model_name = test_dict['model_name'][i] # 模型名称
         config.is_vector = test_dict['is_vector'][i] # 是否使用bert词向量
-        config.is_hidden_tag = test_dict['is_hidden_tag'][i] # 是否增加 子句hidden-> 是否有待抽取属性 的约束
-        config.weight = test_dict['weight'][i]
         config.is_bioes = test_dict['is_bioes'][i]
+        config.embedding_size = test_dict['embedding_size'][i]
 
         ee = EE(config)
         ee.train()

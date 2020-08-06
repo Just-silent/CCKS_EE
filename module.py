@@ -11,7 +11,7 @@ from tqdm import tqdm
 from config import device
 from tool import Tool, logger
 from openpyxl import load_workbook
-from model import TransformerEncoderModel, BiLSTM_CRF, BiLSTM_CRF_hidden_tag, CNN_CRF, BiLSTM_CRF_ATT, TransformerEncoderModel_DAE, BiLSTM_CRF_DAE
+from model import TransformerEncoderModel, BiLSTM_CRF, BiLSTM_CRF_hidden_tag, CNN_CRF, BiLSTM_CRF_ATT, CNN_TransformerEncoderModel, TransformerEncoderModel_DAE, BiLSTM_CRF_DAE
 from sklearn.metrics import classification_report
 from result.predict_eval_process import format_result
 import torch.optim as optim
@@ -47,7 +47,8 @@ class EE():
             'BiLSTM_CRF_DAE':BiLSTM_CRF_DAE,
             'BiLSTM_CRF_hidden_tag':BiLSTM_CRF_hidden_tag,
             'TransformerEncoderModel':TransformerEncoderModel,
-            'TransformerEncoderModel_DAE':TransformerEncoderModel_DAE
+            'TransformerEncoderModel_DAE':TransformerEncoderModel_DAE,
+            'CNN_TransformerEncoderModel':CNN_TransformerEncoderModel
         }
         if hidden_ntag is not None:
             model = models[model_name](config, ntoken, ntag, hidden_ntag, vectors).to(device)
@@ -299,43 +300,43 @@ class EE():
             line_num+=2
             sentence = ws.cell(line_num,1).value
 
-            index_size = {}
-            chars = ['.', '*', '×', 'X', 'x', 'c', 'C', 'm', 'M']
-            starts = []
-            ends = []
-            i = 0
-            while i < len(sentence):
-                if sentence[i] in chars or sentence[i].isdigit():
-                    S_start = i
-                    while i + 1 < len(sentence) and (sentence[i + 1] in chars or sentence[i + 1].isdigit()):
-                        i += 1
-                    if sentence[S_start:i + 1].__contains__('M') or sentence[S_start:i + 1].__contains__('m'):
-                        starts.append(S_start)
-                        ends.append(i)
-                    i += 1
-                else:
-                    i += 1
-            sentence.replace('$', '')
-            new_sentence = [c for c in sentence]
-            width = 0
-            if len(starts) != 0:
-                for i in range(len(starts)):
-                    start_i = starts[i] - width
-                    index_size[start_i] = sentence[starts[i]:ends[i] + 1]
-                    for j in range(ends[i] - starts[i]):
-                        del new_sentence[start_i]
-                    new_sentence[start_i] = '$'
-                    width += ends[i] - starts[i]
-                    a = 0
-            sentence = ''.join(new_sentence)
+            # index_size = {}
+            # chars = ['.', '*', '×', 'X', 'x', 'c', 'C', 'm', 'M']
+            # starts = []
+            # ends = []
+            # i = 0
+            # while i < len(sentence):
+            #     if sentence[i] in chars or sentence[i].isdigit():
+            #         S_start = i
+            #         while i + 1 < len(sentence) and (sentence[i + 1] in chars or sentence[i + 1].isdigit()):
+            #             i += 1
+            #         if sentence[S_start:i + 1].__contains__('M') or sentence[S_start:i + 1].__contains__('m'):
+            #             starts.append(S_start)
+            #             ends.append(i)
+            #         i += 1
+            #     else:
+            #         i += 1
+            # sentence.replace('$', '')
+            # new_sentence = [c for c in sentence]
+            # width = 0
+            # if len(starts) != 0:
+            #     for i in range(len(starts)):
+            #         start_i = starts[i] - width
+            #         index_size[start_i] = sentence[starts[i]:ends[i] + 1]
+            #         for j in range(ends[i] - starts[i]):
+            #             del new_sentence[start_i]
+            #         new_sentence[start_i] = '$'
+            #         width += ends[i] - starts[i]
+            #         a = 0
+            # sentence = ''.join(new_sentence)
 
             sentence1=[]
             texts = self.tool.split_text(sentence)
             tag_pred = []
             for text in texts:
                 sentence1.extend(text)
-                text = torch.tensor(numpy.array([word_vocab.stoi[word] for word in sentence], dtype='int64')).unsqueeze(
-                    1).expand(len(sentence), self.config.batch_size).to(device)
+                text = torch.tensor(numpy.array([word_vocab.stoi[word] for word in text], dtype='int64')).unsqueeze(
+                    1).expand(len(text), self.config.batch_size).to(device)
                 text_len = torch.tensor(numpy.array([len(text)], dtype='int64')).expand(self.config.batch_size).to(device)
                 result = model(text, text_len)[0]
                 for k in result:
@@ -350,7 +351,8 @@ class EE():
                     start = end = 0
                     if tag_pred[i][:1] == 'B':
                         kind = tag_pred[i][2:]
-                        start = end = i
+                        start = i
+                        end = i
                         while end + 1 < len(sentence1) and (tag_pred[end + 1][0] == 'I' or tag_pred[end + 1][0] == 'E') and tag_pred[end + 1][2:] == kind:
                             end+=1
                         if kind == 'origin_place':
@@ -362,11 +364,13 @@ class EE():
                         i = end + 1
                     elif tag_pred[i][:1] == 'E':
                         kind = tag_pred[i][2:]
-                        start = end = i
+                        start = i
+                        end = i
                         if kind == 'origin_place':
                             origin_places.append(sentence1[start:end+1])
                         elif kind == 'size':
-                            sizes.append(index_size[start])
+                            # sizes.append(index_size[start])
+                            sizes.append(sentence1[start:end+1])
                         else:
                             transfered_places.append(sentence1[start:end+1])
                         i+=1
@@ -382,7 +386,8 @@ class EE():
                         if kind == 'origin_place':
                             origin_places.append(sentence1[start:end + 1])
                         elif kind == 'size':
-                            sizes.append(index_size[start])
+                            # sizes.append(index_size[start])
+                            sizes.append(sentence1[start:end+1])
                         else:
                             transfered_places.append(sentence1[start:end + 1])
                         i = end + 1

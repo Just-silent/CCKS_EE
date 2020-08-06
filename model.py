@@ -98,6 +98,103 @@ class TransformerEncoderModel(nn.Module):
                                           src_key_padding_mask=src_key_padding_mask.to(device))
         return output
 
+class CNN_TransformerEncoderModel(nn.Module):
+    def __init__(self, config, ntoken, ntag, vectors):
+        super(CNN_TransformerEncoderModel, self).__init__()
+        self.config = config
+        self.src_mask = None
+        self.vectors = vectors
+
+        self.sizes = [3, 5, 7]
+        if config.is_vector:
+            vectors = Vectors(name='./vector/sgns.wiki.word')
+            self.embedding = nn.Embedding.from_pretrained(vectors)
+        self.convs = nn.ModuleList(
+            [nn.Conv2d(config.chanel_num, config.filter_num, (size, config.embedding_size), padding=size // 2) for size
+             in self.sizes])
+
+        self.embedding_size = config.embedding_size
+        self.embedding = nn.Embedding(ntoken, config.embedding_size)
+        self.pos_encoder = PositionalEncoding(config.embedding_size, config.dropout)
+        encoder_layers = TransformerEncoderLayer(config.embedding_size, config.nhead, config.nhid, config.dropout)
+        self.lstm = nn.LSTM(input_size=config.embedding_size, hidden_size=config.bi_lstm_hidden // 2,
+                            num_layers=1, bidirectional=True)
+        self.att_weight = nn.Parameter(torch.randn(config.bi_lstm_hidden, config.batch_size, config.bi_lstm_hidden))
+        self.transformer_encoder = TransformerEncoder(encoder_layers, config.nlayers)
+        if config.is_pretrained_model:
+            # with torch.no_grad():
+            config_bert = BertConfig.from_pretrained(config.pretrained_config)
+            model = BertModel.from_pretrained(config.pretrained_model, config=config_bert)
+            self.embedding = model
+            for name, param in model.named_parameters():
+                param.requires_grad = True
+        elif config.is_vector:
+            self.embedding = nn.Embedding.from_pretrained(vectors, freeze=False)
+        self.embedding.weight.requires_grad = True
+        self.emsize = config.embedding_size
+        self.linner = nn.Linear(config.bi_lstm_hidden, ntag)
+        self.init_weights()
+        self.crflayer = CRF(ntag)
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
+
+    def init_hidden_lstm(self):
+        return (torch.randn(2, self.config.batch_size, self.config.bi_lstm_hidden // 2).to(device),
+                torch.randn(2, self.config.batch_size, self.config.bi_lstm_hidden // 2).to(device))
+
+    def init_weights(self):
+        initrange = 0.1
+        self.linner.bias.data.zero_()
+        self.linner.weight.data.uniform_(-initrange, initrange)
+
+    def _get_src_key_padding_mask(self, text_len, seq_len):
+        batchszie = text_len.size(0)
+        list1 = []
+        for i in range(batchszie):
+            list2 = []
+            list2.append([False for i in range(text_len[i])] + [True for i in range(seq_len - text_len[i])])
+            list1.append(list2)
+        src_key_padding_mask = torch.tensor(np.array(list1)).squeeze(1)
+        return src_key_padding_mask
+
+    def loss(self, src, text_len, tag):
+        mask_crf = torch.ne(src, 1)
+        transformer_out = self.transformer_forward(src, text_len)
+        lstm_out, _ = self.lstm(transformer_out)
+        emissions = self.linner(lstm_out)
+        crf_loss = self.crflayer(emissions, tag, mask=mask_crf) / tag.size(1)
+        return -crf_loss
+
+    def forward(self, src, text_len):
+        # self.hidden = self.init_hidden_lstm()
+        mask_crf = torch.ne(src, 1)
+        transformer_out = self.transformer_forward(src, text_len)
+        lstm_out, self.hidden = self.lstm(transformer_out)
+        emissions = self.linner(lstm_out)
+        return self.crflayer.decode(emissions, mask=mask_crf)
+
+    def transformer_forward(self, src, text_len):
+        src_key_padding_mask = self._get_src_key_padding_mask(text_len, src.size(0))
+        if self.src_mask is None or self.src_mask.size(0) != len(src):
+            mask = self._generate_square_subsequent_mask(len(src))
+            self.src_mask = mask
+        src = self.embedding(src) * math.sqrt(self.embedding_size)
+        cnn_input = src.transpose(0, 1).unsqueeze(1)
+
+        cnn_out = [F.relu(conv(cnn_input)) for conv in self.convs]
+        for i in range(len(self.sizes)):
+            x = int((self.sizes[i] - 1) / 2)
+            cnn_out[i] = cnn_out[i][:, :, :, x]
+        cnn_out = torch.cat(cnn_out, 1).permute(2, 0, 1)
+        src = self.pos_encoder(cnn_out)     # 64 100 6
+
+        output = self.transformer_encoder(src, mask=self.src_mask.to(device),
+                                          src_key_padding_mask=src_key_padding_mask.to(device))
+        return output
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -536,7 +633,15 @@ class TransformerEncoderModel_DAE(nn.Module):
         # Transformer
         # src = self.embedding(src)[0]
         src = self.embedding(src) * math.sqrt(self.emsize)
-        src = self.pos_encoder(src)
+        cnn_input = src.transpose(0, 1).unsqueeze(1)
+
+        cnn_out = [F.relu(conv(cnn_input)) for conv in self.convs]
+        for i in range(len(self.sizes)):
+            x = int((self.sizes[i] - 1) / 2)
+            cnn_out[i] = cnn_out[i][:, :, :, x]
+        cnn_out = torch.cat(cnn_out, 1).permute(2, 0, 1)
+        src = self.pos_encoder(cnn_out)     # 64 100 6
+
         output = self.transformer_encoder(src, mask=self.src_mask.to(device),
                                           src_key_padding_mask=src_key_padding_mask.to(device))
         return output

@@ -303,7 +303,7 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
 
 if __name__ == '__main__':
     # data_clean()
-    # seg_train('./task2_train_reformat_cleaned.xlsx')
+    seg_train('./task2_train_reformat.xlsx')
     files = ['train','dev']
     for file in files:
         sub_text_more(file)

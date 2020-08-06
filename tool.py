@@ -199,16 +199,21 @@ class EEDataset(Dataset):
                 hidden_tag = [1]
             if sentence is not None:
                 if is_bioes:
-                    # size占位符
-                    tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
-                    # size非占位符
+                    # size占位符 bioes
+                    # tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
+                    # size非占位符 bioes
                     # tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
-                    # sentence_list = [x for x in sentence]
+                    # size非占位符 bio
+                    tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
+                    sentence_list = [x for x in sentence]
                 else:
-                    # size占位符
-                    tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
-                    # tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
-                    # sentence_list = [x for x in sentence]
+                    # size占位符 bioes
+                    # tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
+                    # size非占位符 bioes
+                    # tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
+                    # size非占位符 bio
+                    tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
+                    sentence_list = [x for x in sentence]
                 if config.model_name == 'BiLSTM_CRF_hidden_tag':
                     examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
                 else:
@@ -278,7 +283,7 @@ class Tool():
             label_end = pred['end_pos']
             entities[label_type]['S'] += 1
             for true in true_list:
-                if label_type == true['label_type'] and label_name == true['name'] and label_start == pred['start_pos'] and label_end == pred['end_pos']:
+                if label_type == true['label_type'] and label_name == true['name'] and label_start == true['start_pos'] and label_end == true['end_pos']:
                     entities[label_type]['TP'] += 1
         return entities
 

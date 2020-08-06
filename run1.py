@@ -6,12 +6,12 @@ from module import EE
 from config import config
 
 def one_test():
-    config.experiment_name = 'test_replace'  # 实验名称
-    config.model_name = 'BiLSTM_CRF'  # 模型名称
+    config.experiment_name = 'TransformerEncoderModel_unclean_bio_unbert'  # 实验名称
+    config.model_name = 'TransformerEncoderModel'  # 模型名称
     config.is_vector = False  # 是否使用bert词向量
     config.is_hidden_tag = False  # 是否增加 子句hidden-> 是否有待抽取属性 的约束
-    config.is_bioes = True
-    config.epoch = 10
+    config.is_bioes = False
+    config.epoch = 100
 
     ee = EE(config)
     ee.train()
@@ -20,23 +20,30 @@ def one_test():
     # ee.test_format_result()
 
 def many_test():
+    # data_unclean
+    # data_clean
+    # bioes
+    # bio
+    # replace_size
+    # CNN+
+    # bert
     test_dict = {
-        'experiment_name' : ['BiLSTM_CRF_hidden_tag5', 'BiLSTM_CRF_hidden_tag10', 'BiLSTM_CRF_hidden_tag15', 'BiLSTM_CRF_hidden_tag20', 'BiLSTM_CRF_hidden_tag30', 'BiLSTM_CRF_hidden_tag35', 'BiLSTM_CRF_hidden_tag23', 'BiLSTM_CRF_hidden_tag27'],
-        'model_name' : ['BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag', 'BiLSTM_CRF_hidden_tag'],
-        'is_vector' : [False, False, False, False, False, False, False, False],
-        'is_hidden_tag' : [True, True, True, True, True, True, True, True],
-        'weight' : [5, 10, 15, 20, 30, 35, 23, 27]
+        'experiment_name' : ['TransformerEncoderModel_unclean_bioes_unbert', 'TransformerEncoderModel_unclean_bio_bert', 'TransformerEncoderModel_unclean_bioes_bert'],
+        'model_name' : ['TransformerEncoderModel','TransformerEncoderModel','TransformerEncoderModel'],
+        'is_vector' : [False, True, True],
+        'is_bioes' : [True, False, True],
+        'embedding_size' : [768, 768, 768, 768],
     }
     for i in range(len(test_dict['experiment_name'])):
         config.experiment_name = test_dict['experiment_name'][i] # 实验名称
         config.model_name = test_dict['model_name'][i] # 模型名称
         config.is_vector = test_dict['is_vector'][i] # 是否使用bert词向量
-        config.is_hidden_tag = test_dict['is_hidden_tag'][i] # 是否增加 子句hidden-> 是否有待抽取属性 的约束
-        config.weight = test_dict['weight'][i]
+        config.is_bioes = test_dict['is_bioes'][i]
+        config.embedding_size = test_dict['embedding_size'][i]
 
         ee = EE(config)
         ee.train()
-        ee.predict_test()
+        # ee.predict_test()
         # ee.predict_sentence()
         # ee.test_format_result()
 
