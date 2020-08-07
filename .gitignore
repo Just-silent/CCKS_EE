@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 RoBERTa
+data
 .idea
 .vector_cache
 *.pyc
