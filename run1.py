@@ -14,7 +14,7 @@ def one_test():
     config.epoch = 100
 
     ee = EE(config)
-    # ee.train()
+    ee.train()
     ee.predict_test()
     # ee.predict_sentence()
     # ee.test_format_result()
@@ -48,4 +48,4 @@ def many_test():
         # ee.test_format_result()
 
 if __name__ == '__main__':
-    many_test()
+    one_test()

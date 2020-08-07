@@ -4,7 +4,7 @@
 
 import torch
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 default_config = {
     'experiment_name' : 'TransformerEncoderModel_unclean_bio_unbert',                                    # 实验名称

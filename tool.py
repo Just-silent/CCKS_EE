@@ -5,6 +5,7 @@ import os
 import re
 import json
 import torch
+from tqdm import tqdm
 import logging
 import random
 import numpy as np
@@ -191,7 +192,7 @@ class EEDataset(Dataset):
         wb = load_workbook(filename=path)
         ws = wb['sheet1']
         max_row = ws.max_row
-        for line_num in range(max_row-1):
+        for line_num in tqdm(range(max_row-1)):
             line_num = line_num+2
             sentence, origin_places ,sizes ,transfered_places = ws.cell(line_num, 1).value, ws.cell(line_num, 2).value, ws.cell(line_num, 3).value, ws.cell(line_num, 4).value
             hidden_tag = [0]
