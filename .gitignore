@@ -1,11 +1,9 @@
 # Byte-compiled / optimized / DLL files
+RoBERTa
 .idea
+.vector_cache
 *.pyc
-*.json
-*.pdf
 *.pt
-*.pkl
-*.csv
-result.txt
-pred_info.txt
+*.txt
 result
+save_model
