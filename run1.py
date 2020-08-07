@@ -28,11 +28,11 @@ def many_test():
     # CNN+
     # bert
     test_dict = {
-        'experiment_name' : ['TransformerEncoderModel_unclean_bioes_unbert', 'TransformerEncoderModel_unclean_bio_bert', 'TransformerEncoderModel_unclean_bioes_bert'],
-        'model_name' : ['TransformerEncoderModel','TransformerEncoderModel','TransformerEncoderModel'],
-        'is_vector' : [False, True, True],
-        'is_bioes' : [True, False, True],
-        'embedding_size' : [768, 768, 768, 768],
+        'experiment_name' : ['TransformerEncoderModel_bioes', 'TransformerEncoderModel_bio'],
+        'model_name' : ['TransformerEncoderModel', 'TransformerEncoderModel'],
+        'is_vector' : [False, False],
+        'is_bioes' : [True, False],
+        'embedding_size' : [300, 300],
     }
     for i in range(len(test_dict['experiment_name'])):
         config.experiment_name = test_dict['experiment_name'][i] # 实验名称
@@ -48,4 +48,4 @@ def many_test():
         # ee.test_format_result()
 
 if __name__ == '__main__':
-    one_test()
+    many_test()
