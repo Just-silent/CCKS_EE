@@ -206,7 +206,10 @@ class EEDataset(Dataset):
                     # tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
                     # size非占位符 bio
                     tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
-                    sentence_list = [x for x in sentence]
+                    # sentence_list = [x for x in sentence]
+                    sentence_list = []
+                    for i in range(len(sentence)):
+                        sentence_list.append(sentence[i])
                 else:
                     # size占位符 bioes
                     # tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
@@ -214,7 +217,10 @@ class EEDataset(Dataset):
                     # tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
                     # size非占位符 bio
                     tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
-                    sentence_list = [x for x in sentence]
+                    # sentence_list = [x for x in sentence]
+                    sentence_list = []
+                    for i in range(len(sentence)):
+                        sentence_list.append(sentence[i])
                 if config.model_name == 'BiLSTM_CRF_hidden_tag':
                     examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
                 else:
