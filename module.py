@@ -126,6 +126,7 @@ class EE():
                 max_dict = entity_prf_dict['average']
                 max_report = entity_prf_dict
                 torch.save(model.state_dict(), './save_model/{}.pkl'.format(self.config.experiment_name))
+                logger.info('The best model saved has entity-f1:{}   label-f1:{}'.format(max_f1, label_report['f1-score']))
         logger.info('Finished train')
         logger.info('Max_f1 avg : {}'.format(max_dict))
         self.tool.write_csv(max_report, label_report)
