@@ -42,8 +42,8 @@ def many_test():
         config.embedding_size = test_dict['embedding_size'][i]
 
         ee = EE(config)
-        ee.train()
-        # ee.predict_test()
+        # ee.train()
+        ee.predict_test()
         # ee.predict_sentence()
         # ee.test_format_result()
 
