@@ -188,6 +188,7 @@ def data_clean(path='./task2_train_reformat{}.xlsx'):
                     j+=1
                 ws1.cell(line,i+1,new_sentence)
             elif i==1 or i==3:
+
                 places = ws.cell(line,i+1).value
                 if places is not None:
                     places = places.replace('_x0004_', '').replace(' ', '')
@@ -201,12 +202,25 @@ def data_clean(path='./task2_train_reformat{}.xlsx'):
             else:
                 sizes = ws.cell(line,i+1).value
                 if sizes is not None:
-                    sizes = sizes.replace('_x0004_', '').replace(' ', '')
-                    for size in sizes.split(','):
+                    sizes = sizes.replace('_x0004_', '').replace(' ', '').replace('�', '')
+                    sizes_clean = ''
+                    sizes_list = sizes.split(',')
+                    for j in range(len(sizes_list)):
+                        size = re.findall(r"\d+\.?\d*",sizes_list[j])
+                        if sizes_list[j].__contains__('c') or sizes_list[j].__contains__('C'):
+                            for k in range(len(size)):
+                                sizes_clean = sizes_clean + size[k] + 'CM' + '×'
+                            sizes_clean = sizes_clean[:-1]+','
+                        else:
+                            for k in range(len(size)):
+                                sizes_clean = sizes_clean + size[k] + 'MM' + '×'
+                            sizes_clean = sizes_clean[:-1] + ','
+                    sizes_clean = sizes_clean[:-1]
+                    for size in sizes_clean.split(','):
                         if size not in new_sentence:
                             size_num += 1
                             print('sentence中未找到place，次数{}  {}  {}'.format(size_num, new_sentence, size))
-                    ws1.cell(line, i + 1, sizes)
+                    ws1.cell(line, i + 1, sizes_clean)
     wb1.save(path.format('_cleaned'))
     logger.info('Finished cleaned data')
 
@@ -318,8 +332,8 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
 
 if __name__ == '__main__':
     data_clean()
-    seg_train('./task2_train_reformat_cleaned.xlsx')
-    files = ['train','dev']
-    for file in files:
-        sub_text_more(file)
-    data_clean_test()
+    # seg_train('./task2_train_reformat_cleaned.xlsx')
+    # files = ['train','dev']
+    # for file in files:
+    #     sub_text_more(file)
+    # data_clean_test()
