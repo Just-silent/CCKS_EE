@@ -11,7 +11,7 @@ default_config = {
     'model_path': './save_model/{}.pkl',                            # 保存模型位置
     'analysis_path' : './result/data/{}/analysis.xlsx',
     'train_path' : './data/sub_cut_train_new.xlsx',
-    'dev_path' : './data/sub_cut_dev_new.xlsx',
+    'dev_path' : './data/sub_cut_dev.xlsx',
     'train_dev_path' : './data/task2_train_reformat_cleaned.xlsx',
     'test_path' : './data/task2_no_val_cleaned.xlsx',
     'unformated_val_path' : './result/data/{}/unformated_val.xlsx',  # 模型训练直接预测
