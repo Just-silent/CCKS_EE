@@ -77,7 +77,7 @@ def data_argmentation():
                 sentences.append(sentence.replace(place, places_random[i]))
             for i in range(rate):
                 ws1_new.cell(line_1, 1, sentences[i])
-                ws1_new.cell(line_1, 2, places_random[i])
+                ws1_new.cell(line_1, 4, places_random[i])
                 ws1_new.cell(line_1, 3, size)
                 line_1 += 1
         if ws1.cell(line, 2).value is not None and ws1.cell(line, 4).value is not None:
