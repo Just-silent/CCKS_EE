@@ -324,7 +324,7 @@ class Tool():
                     label_type = _list[i][2:]
                     start_pos = i
                     end_pos = start_pos
-                    if _list[end_pos+1][0] != 'I':
+                    if end_pos+1<_len and _list[end_pos+1][0] != 'I':
                         end_pos+=1
                     else:
                         while end_pos+1 < _len and _list[end_pos+1][0] == 'I' and _list[end_pos+1][2:] == label_type:
