@@ -5,6 +5,13 @@
 import random
 from openpyxl import load_workbook, Workbook
 
+def is_contain(list1, list2):
+    flag = False
+    for i in list1:
+        if i in list2:
+            flag = True
+    return not flag
+
 def data_argmentation():
     # 需要清洗
     vocab_train_path = './task2_vocab.txt'
@@ -61,31 +68,33 @@ def data_argmentation():
             ws1_new.cell(line_1, 1, sentence)
             ws1_new.cell(line_1, 2, place)
             ws1_new.cell(line_1, 3, size)
-            line_1+=1
-            places_random = random.sample(vocab_list, rate)
-            sentences  = []
-            for i in range(rate):
-                sentences.append(sentence.replace(place, places_random[i]))
-            for i in range(rate):
-                ws1_new.cell(line_1, 1, sentences[i])
-                ws1_new.cell(line_1, 2, places_random[i])
-                ws1_new.cell(line_1, 3, size)
-                line_1+=1
+            line_1 += 1
+            if not place.__contains__(','):
+                places_random = random.sample(vocab_list, rate)
+                sentences  = []
+                for i in range(rate):
+                    sentences.append(sentence.replace(place, places_random[i]))
+                for i in range(rate):
+                    ws1_new.cell(line_1, 1, sentences[i])
+                    ws1_new.cell(line_1, 2, places_random[i])
+                    ws1_new.cell(line_1, 3, size)
+                    line_1+=1
         if ws1.cell(line, 2).value is None and ws1.cell(line, 4).value is not None:
             place = ws1.cell(line, 4).value
             ws1_new.cell(line_1, 1, sentence)
             ws1_new.cell(line_1, 4, place)
             ws1_new.cell(line_1, 3, size)
             line_1+=1
-            places_random = random.sample(vocab_list, rate)
-            sentences = []
-            for i in range(rate):
-                sentences.append(sentence.replace(place, places_random[i]))
-            for i in range(rate):
-                ws1_new.cell(line_1, 1, sentences[i])
-                ws1_new.cell(line_1, 4, places_random[i])
-                ws1_new.cell(line_1, 3, size)
-                line_1 += 1
+            if not place.__contains__(','):
+                places_random = random.sample(vocab_list, rate)
+                sentences = []
+                for i in range(rate):
+                    sentences.append(sentence.replace(place, places_random[i]))
+                for i in range(rate):
+                    ws1_new.cell(line_1, 1, sentences[i])
+                    ws1_new.cell(line_1, 4, places_random[i])
+                    ws1_new.cell(line_1, 3, size)
+                    line_1 += 1
         if ws1.cell(line, 2).value is not None and ws1.cell(line, 4).value is not None:
             place1 = ws1.cell(line, 2).value
             place2 = ws1.cell(line, 4).value
@@ -94,17 +103,18 @@ def data_argmentation():
             ws1_new.cell(line_1, 3, size)
             ws1_new.cell(line_1, 4, place2)
             line_1+=1
-            places_random1 = random.sample(vocab_list, rate)
-            places_random2 = random.sample(vocab_list, rate)
-            sentences = []
-            for i in range(rate):
-                sentences.append(sentence.replace(place1, places_random1[i]).replace(place2, places_random2[i]))
-            for i in range(rate):
-                ws1_new.cell(line_1, 1, sentences[i])
-                ws1_new.cell(line_1, 2, places_random1[i])
-                ws1_new.cell(line_1, 3, size)
-                ws1_new.cell(line_1, 4, places_random2[i])
-                line_1 += 1
+            if (not place1.__contains__(',')) and (not place2.__contains__(',') and is_contain(place1.split(','), place2.split(','))):
+                places_random1 = random.sample(vocab_list, rate)
+                places_random2 = random.sample(vocab_list, rate)
+                sentences = []
+                for i in range(rate):
+                    sentences.append(sentence.replace(place1, places_random1[i]).replace(place2, places_random2[i]))
+                for i in range(rate):
+                    ws1_new.cell(line_1, 1, sentences[i])
+                    ws1_new.cell(line_1, 2, places_random1[i])
+                    ws1_new.cell(line_1, 3, size)
+                    ws1_new.cell(line_1, 4, places_random2[i])
+                    line_1 += 1
     print('max_train_row:{} line_1:{}'.format(max1_row, line_1))
     for i in range(max2_row-1):
         line = i+2
@@ -122,30 +132,32 @@ def data_argmentation():
             ws2_new.cell(line_2, 2, place)
             ws2_new.cell(line_2, 3, size)
             line_2+=1
-            places_random = random.sample(vocab_list, rate)
-            sentences  = []
-            for i in range(rate):
-                sentences.append(sentence.replace(place, places_random[i]))
-            for i in range(rate):
-                ws2_new.cell(line_2, 1, sentences[i])
-                ws2_new.cell(line_2, 2, places_random[i])
-                ws2_new.cell(line_2, 3, size)
-                line_2+=1
+            if not place.__contains__(','):
+                places_random = random.sample(vocab_list, rate)
+                sentences  = []
+                for i in range(rate):
+                    sentences.append(sentence.replace(place, places_random[i]))
+                for i in range(rate):
+                    ws2_new.cell(line_2, 1, sentences[i])
+                    ws2_new.cell(line_2, 2, places_random[i])
+                    ws2_new.cell(line_2, 3, size)
+                    line_2+=1
         if ws2.cell(line, 2).value is None and ws2.cell(line, 4).value is not None:
             place = ws2.cell(line, 4).value
             ws2_new.cell(line_2, 1, sentence)
             ws2_new.cell(line_2, 4, place)
             ws2_new.cell(line_2, 3, size)
             line_2+=1
-            places_random = random.sample(vocab_list, rate)
-            sentences = []
-            for i in range(rate):
-                sentences.append(sentence.replace(place, places_random[i]))
-            for i in range(rate):
-                ws2_new.cell(line_2, 1, sentences[i])
-                ws2_new.cell(line_2, 4, places_random[i])
-                ws2_new.cell(line_2, 3, size)
-                line_2 += 1
+            if not place.__contains__(','):
+                places_random = random.sample(vocab_list, rate)
+                sentences = []
+                for i in range(rate):
+                    sentences.append(sentence.replace(place, places_random[i]))
+                for i in range(rate):
+                    ws2_new.cell(line_2, 1, sentences[i])
+                    ws2_new.cell(line_2, 4, places_random[i])
+                    ws2_new.cell(line_2, 3, size)
+                    line_2 += 1
         if ws2.cell(line, 2).value is not None and ws2.cell(line, 4).value is not None:
             place1 = ws2.cell(line, 2).value
             place2 = ws2.cell(line, 4).value
@@ -154,17 +166,18 @@ def data_argmentation():
             ws1_new.cell(line_2, 3, size)
             ws1_new.cell(line_2, 4, place2)
             line_2+=1
-            places_random1 = random.sample(vocab_list, rate)
-            places_random2 = random.sample(vocab_list, rate)
-            sentences = []
-            for i in range(rate):
-                sentences.append(sentence.replace(place1, places_random1[i]).replace(place2, places_random2[i]))
-            for i in range(rate):
-                ws2_new.cell(line_2, 1, sentences[i])
-                ws2_new.cell(line_2, 2, places_random1[i])
-                ws2_new.cell(line_2, 3, size)
-                ws2_new.cell(line_2, 4, places_random2[i])
-                line_2 += 1
+            if (not place1.__contains__(',')) and (not place2.__contains__(',')) and is_contain(place1.split(','), place2.split(',')):
+                places_random1 = random.sample(vocab_list, rate)
+                places_random2 = random.sample(vocab_list, rate)
+                sentences = []
+                for i in range(rate):
+                    sentences.append(sentence.replace(place1, places_random1[i]).replace(place2, places_random2[i]))
+                for i in range(rate):
+                    ws2_new.cell(line_2, 1, sentences[i])
+                    ws2_new.cell(line_2, 2, places_random1[i])
+                    ws2_new.cell(line_2, 3, size)
+                    ws2_new.cell(line_2, 4, places_random2[i])
+                    line_2 += 1
     print('max_dev_row:{} line_2:{}'.format(max2_row, line_2))
     wb1_new.save('./sub_cut_train_new.xlsx')
     wb2_new.save('./sub_cut_dev_new.xlsx')
