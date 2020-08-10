@@ -16,6 +16,7 @@ def one_test():
     ee = EE(config)
     ee.train()
     ee.predict_test()
+
     # ee.predict_sentence()
     # ee.test_format_result()
 
