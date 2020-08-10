@@ -45,11 +45,17 @@ def data_argmentation():
         ws2_new.cell(1, i + 1, names[i])
     line_1 = 2
     line_2 = 2
-    rate = 10
+    rate = 3
     for i in range(max1_row-1):
         line = i+2
         sentence = ws1.cell(line, 1).value
         size = ws1.cell(line, 3).value
+        if ws1.cell(line, 2).value is None and ws1.cell(line, 4).value is None:
+            ws1_new.cell(line_1, 1, sentence)
+            ws1_new.cell(line_1, 2, None)
+            ws1_new.cell(line_1, 3, size)
+            ws1_new.cell(line_1, 3, None)
+            line_1+=1
         if ws1.cell(line, 2).value is not None and ws1.cell(line, 4).value is None:
             place = ws1.cell(line, 2).value
             ws1_new.cell(line_1, 1, sentence)
@@ -99,10 +105,17 @@ def data_argmentation():
                 ws1_new.cell(line_1, 3, size)
                 ws1_new.cell(line_1, 4, places_random2[i])
                 line_1 += 1
+    print('max_train_row:{} line_1:{}'.format(max1_row, line_1))
     for i in range(max2_row-1):
         line = i+2
         sentence = ws2.cell(line, 1).value
         size = ws2.cell(line, 3).value
+        if ws2.cell(line, 2).value is None and ws2.cell(line, 4).value is None:
+            ws2_new.cell(line_2, 1, sentence)
+            ws2_new.cell(line_2, 2, None)
+            ws2_new.cell(line_2, 3, size)
+            ws2_new.cell(line_2, 3, None)
+            line_1+=1
         if ws2.cell(line, 2).value is not None and ws2.cell(line, 4).value is None:
             place = ws2.cell(line, 2).value
             ws2_new.cell(line_2, 1, sentence)
@@ -152,6 +165,7 @@ def data_argmentation():
                 ws2_new.cell(line_2, 3, size)
                 ws2_new.cell(line_2, 4, places_random2[i])
                 line_2 += 1
+    print('max_dev_row:{} line_2:{}'.format(max2_row, line_2))
     wb1_new.save('./sub_cut_train_new.xlsx')
     wb2_new.save('./sub_cut_dev_new.xlsx')
 
