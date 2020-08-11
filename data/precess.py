@@ -282,14 +282,12 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
             if i==0:
                 if '检测值' in ws.cell(line, i + 1).value:
                     new_sentence = ws.cell(line, i + 1).value
-                    for i in range(len(o_chars)):
-                        new_sentence = new_sentence.replace(o_chars[i], t_chars[i])
-                    ws.cell(line, i + 1).value = new_sentence
+                    for j in range(len(o_chars)):
+                        new_sentence = new_sentence.replace(o_chars[j], t_chars[j])
                 else:
                     new_sentence = ws.cell(line, i+1).value.replace(' ', '')
-                    for i in range(len(o_chars)):
-                        new_sentence = new_sentence.replace(o_chars[i], t_chars[i])
-                    ws.cell(line, i + 1).value = new_sentence
+                    for j in range(len(o_chars)):
+                        new_sentence = new_sentence.replace(o_chars[j], t_chars[j])
                 j = 0
                 while j < len(new_sentence):
                     while j < len(new_sentence) and not new_sentence[j].isdigit():
@@ -330,10 +328,40 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
     wb1.save(path.format('_cleaned'))
     logger.info('Finished val cleaned data')
 
+def get_all_vocab():
+    vocab_train_path = './task2_vocab.txt'
+    vocab_val_path = './task2_vocab.val.txt'
+    train_data_path = './task2_train_reformat.xlsx'
+    all_cocab_path = './all_vocab.txt'
+    vocab_list = []
+    for path in [vocab_train_path, vocab_val_path]:
+        with open(path, 'r', encoding='utf-8') as vocab:
+            for x in vocab.readlines():
+                vocab_list.append(x[:-1].replace('_x0004_', '').replace(' ', ''))
+    wb = load_workbook(train_data_path)
+    ws = wb['sheet1']
+    max_row = ws.max_row
+    for i in range(max_row-1):
+        line = i+2
+        if ws.cell(line, 2).value is not None:
+            places = ws.cell(line, 2).value.split(',')
+            for place in places:
+                vocab_list.append(place.replace('_x0004_', '').replace(' ', ''))
+        if ws.cell(line, 4).value is not None:
+            places = ws.cell(line, 4).value.split(',')
+            for place in places:
+                vocab_list.append(place.replace('_x0004_', '').replace(' ', ''))
+    vocab_list = list(set(vocab_list))
+    with open(all_cocab_path, 'w', encoding='utf-8') as all_cocab_file:
+        for place in vocab_list:
+            all_cocab_file.write(place+'\n')
+    logger.info('all_vocab写入完成')
+
 if __name__ == '__main__':
-    data_clean()
-    seg_train('./task2_train_reformat_cleaned.xlsx')
-    files = ['train','dev']
-    for file in files:
-        sub_text_more(file)
-    data_clean_test()
+    # data_clean()
+    # seg_train('./task2_train_reformat_cleaned.xlsx')
+    # files = ['train','dev']
+    # for file in files:
+    #     sub_text_more(file)
+    # data_clean_test()
+    get_all_vocab()
