@@ -98,6 +98,9 @@ class TransformerEncoderModel(nn.Module):
                                           src_key_padding_mask=src_key_padding_mask.to(device))
         return output
 
+class FLAT(nn.Module):
+    pass
+
 class CNN_TransformerEncoderModel(nn.Module):
     def __init__(self, config, ntoken, ntag, vectors):
         super(CNN_TransformerEncoderModel, self).__init__()

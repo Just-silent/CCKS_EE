@@ -5,6 +5,7 @@ import os
 import re
 import json
 import torch
+import collections
 from tqdm import tqdm
 import logging
 import random
@@ -31,8 +32,11 @@ def y_tokenizer(tag: str):
 TEXT = Field(sequential=True, use_vocab=True, tokenize=x_tokenizer, include_lengths=True)
 TAG = Field(sequential=True, tokenize=y_tokenizer, use_vocab=True, is_target=True, pad_token=None)
 Hidden_TAG = Field(sequential=True, tokenize=y_tokenizer, use_vocab=True, is_target=True, pad_token=None)
+Bigram = Field(sequential=True, use_vocab=True, tokenize=x_tokenizer, include_lengths=True)
+lattice = Field(sequential=True, use_vocab=True, tokenize=x_tokenizer, include_lengths=True)
 Fields1 = [('text', TEXT), ('tag', TAG), ('hidden_tag', Hidden_TAG)]
 Fields2 = [('text', TEXT), ('tag', TAG)]
+Fields3 = [('bigram', Bigram), ('lattice',lattice), ('tag', TAG)]
 
 def get_all_tag_bioes(sentence, origin_places, sizes, transfered_places):
     len_sentence = len(sentence)
@@ -186,6 +190,16 @@ def get_all_tag_size(sentence, origin_places, sizes, transfered_places):
                         tag[ends[j]] = 'E_{}'.format(tag_kinds[i])
     return tag, new_sentence
 
+def get_bigram(sentence):
+    bigram = []
+    for i in range(len(sentence)-1):
+        bigram.append(sentence[i:i+2])
+    bigram.append(sentence[-1]+'end')
+    return bigram
+
+def get_lattice():
+    pass
+
 class EEDataset(Dataset):
     def __init__(self, path, is_bioes, fields, encoding="utf-8", **kwargs):
         examples = []
@@ -200,6 +214,9 @@ class EEDataset(Dataset):
                 hidden_tag = [1]
             if sentence is not None:
                 if is_bioes:
+                    if config.model_name == 'FLAT':
+                        bigram = get_bigram(sentence)
+                        lattice = get_lattice()
                     # size占位符 bioes
                     # tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
                     # size非占位符 bioes
@@ -211,6 +228,9 @@ class EEDataset(Dataset):
                     for i in range(len(sentence)):
                         sentence_list.append(sentence[i])
                 else:
+                    if config.model_name == 'FLAT':
+                        bigram = get_bigram(sentence)
+                        lattice = get_lattice()
                     # size占位符 bioes
                     # tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
                     # size非占位符 bioes
@@ -223,17 +243,60 @@ class EEDataset(Dataset):
                         sentence_list.append(sentence[i])
                 if config.model_name == 'BiLSTM_CRF_hidden_tag':
                     examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
+                elif config.model_name == 'FLAT':
+                    examples.append(Example.fromlist((bigram, lattice, tag_list), fields))
                 else:
                     examples.append(Example.fromlist((sentence_list, tag_list), fields))
 
         super(EEDataset, self).__init__(examples, fields, **kwargs)
 
-class Tool():
+class TrieNode:
+    def __init__(self):
+        self.children = collections.defaultdict(TrieNode)
+        self.is_w = False
 
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+
+    def insert(self,w):
+        current = self.root
+        for c in w:
+            current = current.children[c]
+        current.is_w = True
+
+    def search(self,w):
+        current = self.root
+        for c in w:
+            current = current.children.get(c)
+            if current is None:
+                return -1
+        if current.is_w:
+            return 1
+        else:
+            return 0
+
+    def get_lexicon(self,sentence):
+        result = []
+        for i in range(len(sentence)):
+            current = self.root
+            for j in range(i, len(sentence)):
+                current = current.children.get(sentence[j])
+                if current is None:
+                    break
+
+                if current.is_w:
+                    result.append([i,j,sentence[i:j+1]])
+
+        return result
+
+class Tool():
     def __init__(self, config=None):
         if config is not None:
             if config.is_hidden_tag:
                 self.Fields = Fields1
+            elif config.model_name == 'FLAT':
+                self.Fields = Fields3
             else:
                 self.Fields = Fields2
 

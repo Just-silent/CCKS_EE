@@ -7,7 +7,7 @@ import torch
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 default_config = {
-    'experiment_name' : 'TransformerEncoderModel_unclean_bio_unbert',                                    # 实验名称
+    'experiment_name' : 'test1',                                    # 实验名称
     'model_path': './save_model/{}.pkl',                            # 保存模型位置
     'analysis_path' : './result/data/{}/analysis.xlsx',
     'train_path' : './data/sub_cut_train.xlsx',
@@ -17,9 +17,9 @@ default_config = {
     'unformated_val_path' : './result/data/{}/unformated_val.xlsx',  # 模型训练直接预测
     'test_formated_val_path' : './result/data/{}/test_format/formated_val.xlsx',    # 测试format结果是否有提升
     'test_unformated_val_path' : './result/data/{}/test_format/unformated_val.xlsx',
-    'model_name' : 'BiLSTM_CRF_hidden_tag',# CNN_CRF、BiLSTM_CRF、BiLSTM_CRF_ATT、BiLSTM_CRF_DAE、BiLSTM_CRF_hidden_tag、TransformerEncoderModel、TransformerEncoderModel_DAE CNN_TransformerEncoderModel
+    'model_name' : 'BiLSTM_CRF_hidden_tag',# CNN_CRF、BiLSTM_CRF、BiLSTM_CRF_ATT、BiLSTM_CRF_DAE、BiLSTM_CRF_hidden_tag、TransformerEncoderModel、TransformerEncoderModel_DAE
     'is_hidden_tag' : False,                                        # 是否增加 子句hidden-> 是否有待抽取属性 的约束
-    'is_bioes' : False,
+    'is_bioes' : True,
     'is_pretrained_model' : False,                                  # 是否使用预训练模型
     'pretrained_config' : './pretrained_models/RoBERTa/config.json',
     'pretrained_model' : './pretrained_models/RoBERTa/pytorch_model.bin',
