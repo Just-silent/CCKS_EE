@@ -418,7 +418,8 @@ class EE():
                 lattice_vocab = self.tool.get_text_vocab(train_data, dev_data)
             else:
                 word_vocab = self.tool.get_text_vocab(train_data, dev_data)
-        vectors = lattice_vocab.vectors
+        # vectors = lattice_vocab.vectors
+        vectors = None
         tag_vocab = self.tool.get_tag_vocab(train_data, dev_data)
         logger.info('Finished build vocab')
         if self.config.is_hidden_tag:
@@ -447,7 +448,6 @@ class EE():
         for line_num in tqdm(range(max_row - 1)):
             line_num += 2
             sentence = ws.cell(line_num, 1).value
-
             # index_size = {}
             # chars = ['.', '*', '×', 'X', 'x', 'c', 'C', 'm', 'M']
             # starts = []
@@ -478,9 +478,9 @@ class EE():
             #         a = 0
             # sentence = ''.join(new_sentence)
             sentence1 = []
+            tag_pred = []
             if self.config.model_name =='FLAT':
                 texts = self.tool.split_text(sentence)
-                tag_pred = []
                 for text in texts:
                     sentence1.extend(text)
                     bigram1 = get_bigram(text)
@@ -491,14 +491,12 @@ class EE():
                         numpy.array([lattice_vocab.stoi[word] for word in lattice1], dtype='int64')).unsqueeze(
                         1).expand(len(lattice1), self.config.batch_size).to(device)
                     lattice_len = torch.tensor(numpy.array([len(lattice1)], dtype='int64')).expand(
-                        self.config.batch_size).to(
-                        device)
+                        self.config.batch_size).to(device)
                     result = model(bigram, lattice, lattice_len)[0]
                     for k in result:
                         tag_pred.append(tag_vocab.itos[k])
             else:
                 texts = self.tool.split_text(sentence)
-                tag_pred = []
                 for text in texts:
                     sentence1.extend(text)
                     text = torch.tensor(numpy.array([word_vocab.stoi[word] for word in text], dtype='int64')).unsqueeze(
@@ -562,7 +560,6 @@ class EE():
                         i = end + 1
                     else:
                         i += 1
-
                 # if tag_pred[i]!='O':
                 #     start = i
                 #     kind = tag_pred[i][2:]
