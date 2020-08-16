@@ -358,10 +358,10 @@ def get_all_vocab():
     logger.info('all_vocab写入完成')
 
 if __name__ == '__main__':
-    # data_clean()
-    # seg_train('./task2_train_reformat_cleaned.xlsx')
-    # files = ['train','dev']
-    # for file in files:
-    #     sub_text_more(file)
-    # data_clean_test()
-    get_all_vocab()
+    data_clean()
+    seg_train('./task2_train_reformat_cleaned.xlsx')
+    files = ['train','dev']
+    for file in files:
+        sub_text_more(file)
+    data_clean_test()
+    # get_all_vocab()

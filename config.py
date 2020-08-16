@@ -14,6 +14,7 @@ default_config = {
     'dev_path' : './data/sub_cut_dev.xlsx',
     'train_dev_path' : './data/task2_train_reformat_cleaned.xlsx',
     'test_path' : './data/task2_no_val_cleaned.xlsx',
+    'vocab_path' : './data/all_vocab.txt',
     'unformated_val_path' : './result/data/{}/unformated_val.xlsx',  # 模型训练直接预测
     'test_formated_val_path' : './result/data/{}/test_format/formated_val.xlsx',    # 测试format结果是否有提升
     'test_unformated_val_path' : './result/data/{}/test_format/unformated_val.xlsx',
@@ -27,6 +28,8 @@ default_config = {
     'is_vector' : False,                                            # 是否使用词向量
     'vector' : './vector/bert_vectors_768.txt',
     'embedding_size' : 300,   # embedding dimension     预训练模型：hidden 1024/786   word2voc：300
+    'bigram_embedding_size':150,
+    'lattice_embedding_size':150,
     'bi_lstm_hidden'  : 300,
     'num_layers' : 1,
     'pad_index': 1,
@@ -35,7 +38,7 @@ default_config = {
     'batch_size' : 64,
     'chanel_num' : 1,
     'filter_num' : 100,
-    'learning_rate' : 2e-4,
+    'learning_rate' : 1e-4,
     'nhid' : 200, # the dimension of the feedforward network model in nn.TransformerEncoder
     'nlayers' : 2,    # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
     'nhead' : 2,  # the number of heads in the multiheadattention models

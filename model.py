@@ -99,7 +99,93 @@ class TransformerEncoderModel(nn.Module):
         return output
 
 class FLAT(nn.Module):
-    pass
+    def __init__(self, config, nbigram, nlattice, ntag, vectors):
+        super(FLAT, self).__init__()
+        self.config = config
+        self.src_mask = None
+        self.vectors = vectors
+        self.embedding_size = config.embedding_size
+        self.bigram_embedding_size = config.bigram_embedding_size
+        self.lattice_embedding_size = config.lattice_embedding_size
+        self.bigram_embedding = nn.Embedding(nbigram, config.bigram_embedding_size)
+        self.lattice_embedding = nn.Embedding(nlattice, config.lattice_embedding_size)
+        self.pos_encoder = PositionalEncoding(config.embedding_size, config.dropout)
+        encoder_layers = TransformerEncoderLayer(config.embedding_size, config.nhead, config.nhid, config.dropout)
+        self.lstm = nn.LSTM(input_size=config.embedding_size, hidden_size=config.bi_lstm_hidden // 2,
+                            num_layers=1, bidirectional=True)
+        self.att_weight = nn.Parameter(torch.randn(config.bi_lstm_hidden, config.batch_size, config.bi_lstm_hidden))
+        self.transformer_encoder = TransformerEncoder(encoder_layers, config.nlayers)
+        if config.is_pretrained_model:
+            # with torch.no_grad():
+            config_bert = BertConfig.from_pretrained(config.pretrained_config)
+            model = BertModel.from_pretrained(config.pretrained_model, config=config_bert)
+            self.embedding = model
+            for name, param in model.named_parameters():
+                param.requires_grad = True
+        elif config.is_vector:
+            self.embedding = nn.Embedding.from_pretrained(vectors, freeze=False)
+        self.emsize = config.embedding_size
+        self.linner = nn.Linear(config.bi_lstm_hidden, ntag)
+        self.lattice_linner = nn.Linear(config.lattice_embedding_size, config.bi_lstm_hidden)
+        self.big_lat_linner = nn.Linear(config.bi_lstm_hidden, config.bi_lstm_hidden)
+        self.init_weights()
+        self.crflayer = CRF(ntag)
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
+
+    def init_hidden_lstm(self):
+        return (torch.randn(2, self.config.batch_size, self.config.bi_lstm_hidden // 2).to(device),
+                torch.randn(2, self.config.batch_size, self.config.bi_lstm_hidden // 2).to(device))
+
+    def init_weights(self):
+        initrange = 0.1
+        self.linner.bias.data.zero_()
+        self.linner.weight.data.uniform_(-initrange, initrange)
+
+    def _get_src_key_padding_mask(self, text_len, seq_len):
+        batchszie = text_len.size(0)
+        list1 = []
+        for i in range(batchszie):
+            list2 = []
+            list2.append([False for i in range(text_len[i])] + [True for i in range(seq_len - text_len[i])])
+            list1.append(list2)
+        src_key_padding_mask = torch.tensor(np.array(list1)).squeeze(1)
+        return src_key_padding_mask
+
+    def loss(self, bigram, lattice, lattice_len, tag):
+        mask_crf = torch.ne(bigram, 1)
+        transformer_out = self.transformer_forward(bigram, lattice, lattice_len)[0:bigram.size(0),:,:]
+        lstm_out, _ = self.lstm(transformer_out)
+        emissions = self.linner(lstm_out)
+        crf_loss = self.crflayer(emissions, tag, mask=mask_crf)
+        return -crf_loss
+
+    def forward(self, bigram, lattice, lattice_len):
+        mask_crf = torch.ne(bigram, 1)
+        transformer_out = self.transformer_forward(bigram, lattice, lattice_len)[0:bigram.size(0),:,:]
+        lstm_out, self.hidden = self.lstm(transformer_out)
+        emissions = self.linner(lstm_out)
+        return self.crflayer.decode(emissions, mask=mask_crf)
+
+    def transformer_forward(self, bigram, lattice, lattice_len):
+        src_key_padding_mask = self._get_src_key_padding_mask(lattice_len, lattice.size(0))
+        if self.src_mask is None or self.src_mask.size(0) != len(lattice):
+            mask = self._generate_square_subsequent_mask(len(lattice))
+            self.src_mask = mask
+        bigram_embedding = self.bigram_embedding(bigram)
+        lattice_embedding = self.lattice_embedding(lattice)
+        x = torch.zeros(size=[lattice_embedding.size(0)-bigram_embedding.size(0), lattice_embedding.size(1), lattice_embedding.size(2)]).to(device)
+        bigram_embedding = torch.cat([bigram_embedding, x], dim=0)
+        big_lat_embedding = self.big_lat_linner(torch.cat([bigram_embedding, lattice_embedding], dim=-1))
+        lattice_embedding = self.lattice_linner(lattice_embedding)
+        src = (big_lat_embedding + lattice_embedding) * math.sqrt(self.embedding_size)
+        src = self.pos_encoder(src)
+        output = self.transformer_encoder(src, mask=self.src_mask.to(device),
+                                          src_key_padding_mask=src_key_padding_mask.to(device))
+        return output
 
 class CNN_TransformerEncoderModel(nn.Module):
     def __init__(self, config, ntoken, ntag, vectors):

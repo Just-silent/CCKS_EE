@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # @Author   : Just-silent
 # @time     : 2020/4/26 10:25
+import codecs
 import os
 import re
 import json
@@ -32,11 +33,11 @@ def y_tokenizer(tag: str):
 TEXT = Field(sequential=True, use_vocab=True, tokenize=x_tokenizer, include_lengths=True)
 TAG = Field(sequential=True, tokenize=y_tokenizer, use_vocab=True, is_target=True, pad_token=None)
 Hidden_TAG = Field(sequential=True, tokenize=y_tokenizer, use_vocab=True, is_target=True, pad_token=None)
-Bigram = Field(sequential=True, use_vocab=True, tokenize=x_tokenizer, include_lengths=True)
+bigram = Field(sequential=True, use_vocab=True, tokenize=x_tokenizer, include_lengths=True)
 lattice = Field(sequential=True, use_vocab=True, tokenize=x_tokenizer, include_lengths=True)
 Fields1 = [('text', TEXT), ('tag', TAG), ('hidden_tag', Hidden_TAG)]
 Fields2 = [('text', TEXT), ('tag', TAG)]
-Fields3 = [('bigram', Bigram), ('lattice',lattice), ('tag', TAG)]
+Fields3 = [('bigram', bigram), ('lattice',lattice), ('tag', TAG)]
 
 def get_all_tag_bioes(sentence, origin_places, sizes, transfered_places):
     len_sentence = len(sentence)
@@ -197,8 +198,14 @@ def get_bigram(sentence):
     bigram.append(sentence[-1]+'end')
     return bigram
 
-def get_lattice():
-    pass
+def get_flat(sentence, origin_places, sizes, transfered_places, w_trie):
+    # 1.bigram
+    bigram = get_bigram(sentence)
+    # 2.lattice
+    lattice = list(sentence) + w_trie.get_lexicon(sentence)
+    # 3.tag
+    tag = get_all_tag(sentence, origin_places, sizes, transfered_places)
+    return bigram, lattice, tag
 
 class EEDataset(Dataset):
     def __init__(self, path, is_bioes, fields, encoding="utf-8", **kwargs):
@@ -206,7 +213,18 @@ class EEDataset(Dataset):
         wb = load_workbook(filename=path)
         ws = wb['sheet1']
         max_row = ws.max_row
-        for line_num in tqdm(range(max_row-1)):
+        if config.model_name == 'FLAT':
+            f = open(config.vocab_path, 'r')
+            lines = f.readlines()
+            w_list = []
+            for line in lines:
+                splited = line.strip().split(' ')
+                w = splited[0]
+                w_list.append(w)
+            w_trie = Trie()
+            for w in w_list:
+                w_trie.insert(w)
+        for line_num in tqdm(range(max_row-1)):     # 1400
             line_num = line_num+2
             sentence, origin_places ,sizes ,transfered_places = ws.cell(line_num, 1).value, ws.cell(line_num, 2).value, ws.cell(line_num, 3).value, ws.cell(line_num, 4).value
             hidden_tag = [0]
@@ -215,8 +233,8 @@ class EEDataset(Dataset):
             if sentence is not None:
                 if is_bioes:
                     if config.model_name == 'FLAT':
-                        bigram = get_bigram(sentence)
-                        lattice = get_lattice()
+                               # * .
+                        bigram, lattice, tag = get_flat(sentence, origin_places, sizes, transfered_places, w_trie)
                     # size占位符 bioes
                     # tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
                     # size非占位符 bioes
@@ -229,8 +247,8 @@ class EEDataset(Dataset):
                         sentence_list.append(sentence[i])
                 else:
                     if config.model_name == 'FLAT':
-                        bigram = get_bigram(sentence)
-                        lattice = get_lattice()
+
+                        bigram, lattice, tag = get_flat(sentence, origin_places, sizes, transfered_places, w_trie)
                     # size占位符 bioes
                     # tag_list, sentence_list = get_all_tag_size(sentence, origin_places, sizes, transfered_places)
                     # size非占位符 bioes
@@ -286,7 +304,7 @@ class Trie:
                     break
 
                 if current.is_w:
-                    result.append([i,j,sentence[i:j+1]])
+                    result.append(sentence[i:j+1])
 
         return result
 
@@ -306,6 +324,9 @@ class Tool():
         return dataset
 
     def get_text_vocab(self, *dataset):
+        if config.model_name == 'FLAT':
+            lattice.build_vocab(*dataset)
+            return lattice.vocab
         if config.is_vector is False:
             TEXT.build_vocab(*dataset)
         else:
@@ -321,12 +342,16 @@ class Tool():
         TAG.build_vocab(*dataset)
         return TAG.vocab
 
+    def get_bigram_vocab(self, *dataset):
+        bigram.build_vocab(*dataset)
+        return bigram.vocab
+
     def get_hidden_tag_vocab(self, *dataset):
         Hidden_TAG.build_vocab(*dataset)
         return Hidden_TAG.vocab
 
     def get_iterator(self, dataset: Dataset, batch_size=1,
-                     sort_key=lambda x: len(x.text), sort_within_batch=True):
+                     sort_key=lambda x: len(x.lattice), sort_within_batch=True):
         iterator = BucketIterator(dataset, batch_size=batch_size, sort_key=sort_key,
                               sort_within_batch=sort_within_batch, device=device)
         return iterator
@@ -355,7 +380,57 @@ class Tool():
             for true in true_list:
                 if label_type == true['label_type'] and label_name == true['name'] and label_start == true['start_pos'] and label_end == true['end_pos']:
                     entities[label_type]['TP'] += 1
+        self.record_pred_info(sentence=sentence, true_list=true_list, pred_list=pred_list,path = './result/classification_report/{}/pred_info.txt'.format(config.experiment_name))
         return entities
+
+    def record_pred_info(self, sentence=None, true_list=None, pred_list=None, path=None):
+        pred_false = []
+        un_pred = []
+        sentence = ''.join(sentence)
+        for pred in pred_list:
+            start_pos = pred['start_pos']
+            end_pos = pred['end_pos']
+            label_type = pred['label_type']
+            _bool = False
+            for true in true_list:
+                if label_type == true['label_type'] and start_pos == true['start_pos'] and end_pos == true['end_pos']:
+                    _bool = True
+                    break
+            if not _bool:
+                pred_false.append({'entity': sentence[start_pos: end_pos+1], 'label_type': label_type})
+        for true in true_list:
+            start_pos = true['start_pos']
+            end_pos = true['end_pos']
+            label_type = true['label_type']
+            _bool = False
+            for pred in pred_list:
+                if label_type == pred['label_type'] and start_pos == pred['start_pos'] and end_pos == pred['end_pos']:
+                    _bool = True
+                    break
+            if not _bool:
+                un_pred.append({'entity': sentence[start_pos: end_pos+1], 'label_type': label_type})
+        pred_dict = {'sentence': sentence, 'pred_false': pred_false, 'un_pred': un_pred}
+
+        # for pred in pred_list:
+        #
+        #     _bool = False
+        #     for true in true_list:
+        #         if true == pred:
+        #             _bool = True
+        #             break
+        #         if not _bool and pred != '':
+        #             pred_false.append({'true': true, 'pred':pred })
+        # for true in true_list:
+        #     _bool = False
+        #     for pred in pred_list:
+        #         if pred == true:
+        #             _bool = True
+        #             break
+        #         if not _bool and pred == '':
+        #             un_pred.append({'true': true})
+        # pred_dict = {'sentence': sentence, 'pred_false': pred_false, 'un_pred': un_pred}
+        with codecs.open(path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(pred_dict, ensure_ascii=False) + '\n')
 
     def _build_list_dict(self, is_bioes, _len, _list, sentence):
         build_list = []
