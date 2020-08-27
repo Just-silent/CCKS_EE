@@ -13,10 +13,9 @@ from config import device
 from transformers import *
 from torch.nn import functional as F
 from torchtext.vocab import Vectors
-from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from torch.nn.modules.transformer import TransformerEncoder, TransformerEncoderLayer
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from base.layers import ScaledDotProductAttention, SelfAttention, MultiHeadAttention
-
 
 class TransformerEncoderModel(nn.Module):
     def __init__(self, config, ntoken, ntag, vectors):
@@ -76,14 +75,15 @@ class TransformerEncoderModel(nn.Module):
         transformer_out = self.transformer_forward(src, text_len)
         lstm_out, _ = self.lstm(transformer_out)
         emissions = self.linner(lstm_out)
-        crf_loss = self.crflayer(emissions, tag, mask=mask_crf) / tag.size(1)
+        # crf_loss = self.crflayer(emissions, tag, mask=mask_crf) / tag.size(1)
+        crf_loss = self.crflayer(emissions, tag, mask=mask_crf)
         return -crf_loss
 
     def forward(self, src, text_len):
-        # self.hidden = self.init_hidden_lstm()
+        self.hidden = self.init_hidden_lstm()
         mask_crf = torch.ne(src, 1)
         transformer_out = self.transformer_forward(src, text_len)
-        lstm_out, self.hidden = self.lstm(transformer_out)
+        lstm_out, _ = self.lstm(transformer_out, self.hidden)
         emissions = self.linner(lstm_out)
         return self.crflayer.decode(emissions, mask=mask_crf)
 
@@ -175,8 +175,8 @@ class FLAT(nn.Module):
         if self.src_mask is None or self.src_mask.size(0) != len(lattice):
             mask = self._generate_square_subsequent_mask(len(lattice))
             self.src_mask = mask
-        bigram_embedding = self.bigram_embedding(bigram)
-        lattice_embedding = self.lattice_embedding(lattice)
+        bigram_embedding = self.bigram_embedding(bigram) * math.sqrt(self.embedding_size)
+        lattice_embedding = self.lattice_embedding(lattice) * math.sqrt(self.embedding_size)
         x = torch.zeros(size=[lattice_embedding.size(0)-bigram_embedding.size(0), lattice_embedding.size(1), lattice_embedding.size(2)]).to(device)
         bigram_embedding = torch.cat([bigram_embedding, x], dim=0)
         big_lat_embedding = self.big_lat_linner(torch.cat([bigram_embedding, lattice_embedding], dim=-1))
@@ -568,6 +568,47 @@ class CNN_CRF(nn.Module):
             x = int((self.sizes[i] - 1) / 2)
             cnn_out[i] = cnn_out[i][:, :, :, x]
         return self.linner(torch.cat(cnn_out, 1).squeeze().permute(2, 0, 1))
+
+class CNN_BiLSTM_CRF(BiLSTM_CRF):
+    def __init__(self, config, ntoken, ntag, vectors):
+        super(CNN_BiLSTM_CRF,self).__init__(config, ntoken, ntag, vectors) # 继承父类的属性
+        self.sizes = [3, 5, 7]
+        self.convs = nn.ModuleList(
+            [nn.Conv2d(config.chanel_num, config.filter_num, (size, config.embedding_size), padding=size // 2) for size
+             in self.sizes])
+
+    def loss(self, text, lengths, tag):
+        mask = torch.ne(text, self.config.pad_index)
+        hidden = text
+        for i in range(3):
+            hidden = self.cnn_forward(hidden, i)
+        emission, _ = self.lstm_forward(hidden, lengths)
+        return -self.crflayer(emission, tag, mask)
+
+    def forward(self, text, lengths):
+        mask = torch.ne(text, self.config.pad_index)
+        hidden = text
+        for i in range(2):
+            hidden = self.cnn_forward(hidden, i)
+        emission, _ = self.lstm_forward(hidden, lengths)
+        return self.crflayer.decode(emission, mask)
+
+    def cnn_forward(self, text, i):
+        if i==0:
+            text = self.embedding(text).transpose(0, 1).unsqueeze(1)
+        else:
+            text = text.transpose(0, 1).unsqueeze(1)
+        cnn_out = [F.relu(conv(text)) for conv in self.convs]
+        for i in range(len(self.sizes)):
+            x = int((self.sizes[i] - 1) / 2)
+            cnn_out[i] = cnn_out[i][:, :, :, x]
+        return torch.cat(cnn_out, 1).squeeze().permute(2, 0, 1)
+
+    def lstm_forward(self, text, lengths):
+        hidden = self.init_hidden(batch_size=len(lengths))
+        lstm_out, new_hidden = self.lstm(text, hidden)
+        emission = self.linner(lstm_out)
+        return emission, new_hidden[0].view(self.config.batch_size,-1)
 
 class BiLSTM_CRF_DAE(nn.Module):
     def __init__(self, config, ntoken, ntag, vectors):

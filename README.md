@@ -52,3 +52,15 @@ eval()                  # 评测函数
 predict_test()          # 预测test文件
 predict_sentence()      # 预测具体医疗病例
 ```
+
+## 2020.8.22
+```
+1.embedding
+2.data argument
+3.ruler
+4.dice loss
+5.hidden tag & size replace & bioes & CNN
+6.autoencoder
+7.data clean 
+note:find mistakes
+```

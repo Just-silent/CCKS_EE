@@ -10,9 +10,10 @@ import random
 from tqdm import tqdm
 from config import device, config
 from tool import Tool, logger, get_bigram, Trie
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
+from openpyxl.styles import PatternFill
 from model import TransformerEncoderModel, BiLSTM_CRF, BiLSTM_CRF_hidden_tag, CNN_CRF, BiLSTM_CRF_ATT, \
-    CNN_TransformerEncoderModel, TransformerEncoderModel_DAE, BiLSTM_CRF_DAE, FLAT
+    CNN_TransformerEncoderModel, TransformerEncoderModel_DAE, BiLSTM_CRF_DAE, FLAT, CNN_BiLSTM_CRF
 from sklearn.metrics import classification_report
 from result.predict_eval_process import format_result
 import torch.optim as optim
@@ -54,7 +55,8 @@ class EE():
             'TransformerEncoderModel': TransformerEncoderModel,
             'TransformerEncoderModel_DAE': TransformerEncoderModel_DAE,
             'CNN_TransformerEncoderModel': CNN_TransformerEncoderModel,
-            'FLAT': FLAT
+            'FLAT': FLAT,
+            'CNN_BiLSTM_CRF' : CNN_BiLSTM_CRF
         }
         if hidden_ntag is not None:
             model = models[model_name](config, ntoken, ntag, hidden_ntag, vectors).to(device)
@@ -98,7 +100,10 @@ class EE():
                 self.lattice_vocab = self.tool.get_text_vocab(train_data, dev_data)
             else:
                 self.word_vocab = self.tool.get_text_vocab(train_data, dev_data)
-        vectors = self.lattice_vocab.vectors
+        if self.config.model_name == 'FLAT':
+            vectors = self.lattice_vocab.vectors
+        else:
+            vectors = self.word_vocab.vectors
         self.tag_vocab = self.tool.get_tag_vocab(train_data, dev_data)
         logger.info('Finished build vocab')
         if self.config.is_hidden_tag:
@@ -145,6 +150,7 @@ class EE():
                     optimizer.step()
             f1, report_dict, entity_prf_dict = self.eval(dev_iter)
             loss_list.append(acc_loss)
+            # f1 = report_dict['weighted avg']['f1-score']
             f1_list.append(f1)
             epoch_list.append(epoch + 1)
             logger.info('epoch:{}   loss:{}   weighted avg:{}'.format(epoch, acc_loss, report_dict['weighted avg']))
@@ -297,7 +303,7 @@ class EE():
                 lattice_vocab = self.tool.get_text_vocab(train_data, dev_data)
             else:
                 word_vocab = self.tool.get_text_vocab(train_data, dev_data)
-        vectors = lattice_vocab.vectors
+        vectors = None
         tag_vocab = self.tool.get_tag_vocab(train_data, dev_data)
         logger.info('Finished build vocab')
         if self.config.is_hidden_tag:
@@ -337,11 +343,10 @@ class EE():
             #         tag_pred.append(tag_vocab.itos[k])
             # sentence1 = ''.join(sentence1)
             # i = 0
+            sentence1 = []
             if self.config.model_name =='FLAT':
-
                 texts = self.tool.split_text(sentence)
                 tag_pred = []
-                sentence1 = []
                 for text in texts:
                     sentence1.extend(text)
                     bigram1 = get_bigram(text)
@@ -627,6 +632,208 @@ class EE():
         logger.info('unformated report{}'.format(prf_dict_formated['weighted avg']))
         logger.info('formated report{}'.format(prf_dict_unformated['weighted avg']))
 
+    def write_val_true_pred(self, path=None, model_name=None, save_path=None):
+        if path is None:
+            model_name = self.config.model_path.format(self.config.experiment_name)
+            save_path = self.config.analysis_path.format(self.config.experiment_name)
+        train_data = self.tool.load_data(self.config.train_path, self.config.is_bioes)
+        dev_data = self.tool.load_data(self.config.dev_path, self.config.is_bioes)
+        logger.info('Finished load data')
+        logger.info('Building vocab ...')
+        if self.config.is_pretrained_model:
+            with open(self.config.pretrained_vocab, 'r', encoding='utf-8') as vocab_file:
+                vocab_list = vocab_file.readlines()
+            word_vocab = self.tool.get_text_vocab(vocab_list)
+        else:
+            if self.config.model_name == 'FLAT':
+                bigram_vocab = self.tool.get_bigram_vocab(train_data, dev_data)
+                lattice_vocab = self.tool.get_text_vocab(train_data, dev_data)
+            else:
+                word_vocab = self.tool.get_text_vocab(train_data, dev_data)
+        # vectors = lattice_vocab.vectors
+        vectors = None
+        tag_vocab = self.tool.get_tag_vocab(train_data, dev_data)
+        logger.info('Finished build vocab')
+        if self.config.is_hidden_tag:
+            self.hidden_tag_vocab = self.tool.get_hidden_tag_vocab(train_data, dev_data)
+            model = self.init_model(self.config, len(word_vocab), len(tag_vocab), len(self.hidden_tag_vocab),
+                                    vectors=vectors)
+        elif self.config.model_name == 'FLAT':
+            model = self.init_model(self.config, len(bigram_vocab), len(lattice_vocab), len(tag_vocab), vectors=vectors,
+                                    n_bigram=None)
+        else:
+            model = self.init_model(self.config, len(word_vocab), len(tag_vocab), None, vectors=vectors)
+        model.load_state_dict(torch.load(model_name))
+        # 需要新建xlsx 七列
+        wb_analysis = Workbook()
+        analysis_sheet = wb_analysis.create_sheet('sheet1')
+        wb_analysis.remove(wb_analysis['Sheet'])
+        names = ['原文', '原发部位', '病灶大小', '转移部位', 'pred_原发部位', 'pred_病灶大小', 'pred_转移部位']
+        for i in range(len(names)):
+            analysis_sheet.cell(1, i + 1, names[i])
+        wb = load_workbook(filename=config.analysis_dev_path)
+        ws = wb['sheet1']
+        max_row = ws.max_row
+        false_fill = PatternFill(fill_type='solid', fgColor='FFC125')
+        for line_num in tqdm(range(max_row - 1)):
+            line_num += 2
+            sentence = ws.cell(line_num, 1).value
+            # index_size = {}
+            # chars = ['.', '*', '×', 'X', 'x', 'c', 'C', 'm', 'M']
+            # starts = []
+            # ends = []
+            # i = 0
+            # while i < len(sentence):
+            #     if sentence[i] in chars or sentence[i].isdigit():
+            #         S_start = i
+            #         while i + 1 < len(sentence) and (sentence[i + 1] in chars or sentence[i + 1].isdigit()):
+            #             i += 1
+            #         if sentence[S_start:i + 1].__contains__('M') or sentence[S_start:i + 1].__contains__('m'):
+            #             starts.append(S_start)
+            #             ends.append(i)
+            #         i += 1
+            #     else:
+            #         i += 1
+            # sentence.replace('$', '')
+            # new_sentence = [c for c in sentence]
+            # width = 0
+            # if len(starts) != 0:
+            #     for i in range(len(starts)):
+            #         start_i = starts[i] - width
+            #         index_size[start_i] = sentence[starts[i]:ends[i] + 1]
+            #         for j in range(ends[i] - starts[i]):
+            #             del new_sentence[start_i]
+            #         new_sentence[start_i] = '$'
+            #         width += ends[i] - starts[i]
+            #         a = 0
+            # sentence = ''.join(new_sentence)
+            sentence1 = []
+            tag_pred = []
+            if self.config.model_name == 'FLAT':
+                texts = self.tool.split_text(sentence)
+                for text in texts:
+                    sentence1.extend(text)
+                    bigram1 = get_bigram(text)
+                    bigram = torch.tensor(
+                        numpy.array([bigram_vocab.stoi[bi] for bi in bigram1], dtype='int64')).unsqueeze(
+                        1).expand(len(bigram1), self.config.batch_size).to(device)
+                    lattice1 = list(text) + w_trie.get_lexicon(text)
+                    lattice = torch.tensor(
+                        numpy.array([lattice_vocab.stoi[word] for word in lattice1], dtype='int64')).unsqueeze(
+                        1).expand(len(lattice1), self.config.batch_size).to(device)
+                    lattice_len = torch.tensor(numpy.array([len(lattice1)], dtype='int64')).expand(
+                        self.config.batch_size).to(device)
+                    result = model(bigram, lattice, lattice_len)[0]
+                    for k in result:
+                        tag_pred.append(tag_vocab.itos[k])
+            else:
+                texts = self.tool.split_text(sentence)
+                for text in texts:
+                    sentence1.extend(text)
+                    text = torch.tensor(numpy.array([word_vocab.stoi[word] for word in text], dtype='int64')).unsqueeze(
+                        1).expand(len(text), self.config.batch_size).to(device)
+                    text_len = torch.tensor(numpy.array([len(text)], dtype='int64')).expand(self.config.batch_size).to(
+                        device)
+                    result = model(text, text_len)[0]
+                    for k in result:
+                        tag_pred.append(tag_vocab.itos[k])
+            sentence1 = ''.join(sentence1)
+            i = 0
+            origin_places = []
+            sizes = []
+            transfered_places = []
+            while i < len(tag_pred):
+                if self.config.is_bioes:
+                    start = end = 0
+                    if tag_pred[i][:1] == 'B':
+                        kind = tag_pred[i][2:]
+                        start = i
+                        end = i
+                        while end + 1 < len(sentence1) and (
+                                tag_pred[end + 1][0] == 'I' or tag_pred[end + 1][0] == 'E') and tag_pred[end + 1][
+                                                                                                2:] == kind:
+                            end += 1
+                        if kind == 'origin_place':
+                            origin_places.append(sentence1[start:end + 1])
+                        elif kind == 'size':
+                            sizes.append(sentence1[start:end + 1])
+                        else:
+                            transfered_places.append(sentence1[start:end + 1])
+                        i = end + 1
+                    elif tag_pred[i][:1] == 'E':
+                        kind = tag_pred[i][2:]
+                        start = i
+                        end = i
+                        if kind == 'origin_place':
+                            origin_places.append(sentence1[start:end + 1])
+                        elif kind == 'size':
+                            # sizes.append(index_size[start])
+                            sizes.append(sentence1[start:end + 1])
+                        else:
+                            transfered_places.append(sentence1[start:end + 1])
+                        i += 1
+                    else:
+                        i += 1
+                else:
+                    start = end = 0
+                    if tag_pred[i][:1] == 'B':
+                        kind = tag_pred[i][2:]
+                        start = end = i
+                        while end + 1 < len(sentence1) and tag_pred[end + 1][0] == 'I' and tag_pred[end + 1][
+                                                                                           2:] == kind:
+                            end += 1
+                        if kind == 'origin_place':
+                            origin_places.append(sentence1[start:end + 1])
+                        elif kind == 'size':
+                            # sizes.append(index_size[start])
+                            sizes.append(sentence1[start:end + 1])
+                        else:
+                            transfered_places.append(sentence1[start:end + 1])
+                        i = end + 1
+                    else:
+                        i += 1
+                # if tag_pred[i]!='O':
+                #     start = i
+                #     kind = tag_pred[i][2:]
+                #     while i+1<len(tag_pred) and tag_pred[i+1][2:]==kind:
+                #         i+=1
+                #     end = i + 1
+                #     if kind == 'origin_place':
+                #         origin_places.append(sentence1[start:end])
+                #     elif kind == 'size':
+                #         sizes.append(index_size[start])
+                #     else:
+                #         transfered_places.append(sentence1[start:end])
+                # i+=1
+            for places in [origin_places, sizes, transfered_places]:
+                for place in places:
+                    if place == []:
+                        places.remove(place)
+            analysis_sheet.cell(line_num, 1, ws.cell(line_num, 1).value)
+            analysis_sheet.cell(line_num, 2, ws.cell(line_num, 2).value)
+            analysis_sheet.cell(line_num, 3, ws.cell(line_num, 3).value)
+            analysis_sheet.cell(line_num, 4, ws.cell(line_num, 4).value)
+            analysis_sheet.cell(line_num, 5, ','.join(list(set(origin_places))))
+            analysis_sheet.cell(line_num, 6, ','.join(list(set(sizes))))
+            analysis_sheet.cell(line_num, 7, ','.join(list(set(transfered_places))))
+            for i in range(2,5):
+                if analysis_sheet.cell(line_num, i).value != None:
+                    if analysis_sheet.cell(line_num, i+3).value == None:
+                        analysis_sheet.cell(line_num, i).fill = false_fill
+                        analysis_sheet.cell(line_num, i+3).fill = false_fill
+                    else:
+                        flag = False
+                        s1 = analysis_sheet.cell(line_num, i).value.split(',')
+                        s2 = analysis_sheet.cell(line_num, i+3).value.split(',')
+                        for x in s2:
+                            if x not in s1:
+                                flag = True
+                                break
+                        if flag:
+                            analysis_sheet.cell(line_num, i).fill = false_fill
+                            analysis_sheet.cell(line_num, i + 3).fill = false_fill
+        wb_analysis.save(save_path)
+        logger.info('Finished Predicting...')
 
 if __name__ == '__main__':
     ee = EE()

@@ -4,14 +4,15 @@
 
 import torch
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 default_config = {
-    'experiment_name' : 'test1',                                    # 实验名称
+    'experiment_name' : 'TransformerEncoderModel_bio_no_size_clean',                                    # 实验名称
     'model_path': './save_model/{}.pkl',                            # 保存模型位置
     'analysis_path' : './result/data/{}/analysis.xlsx',
-    'train_path' : './data/sub_cut_train.xlsx',
-    'dev_path' : './data/sub_cut_dev.xlsx',
+    'train_path' : './data/sub_cut_train1.xlsx',
+    'dev_path' : './data/sub_cut_dev1.xlsx',
+    'analysis_dev_path' : './data/sub_dev.xlsx',
     'train_dev_path' : './data/task2_train_reformat_cleaned.xlsx',
     'test_path' : './data/task2_no_val_cleaned.xlsx',
     'vocab_path' : './data/all_vocab.txt',
@@ -38,7 +39,7 @@ default_config = {
     'batch_size' : 64,
     'chanel_num' : 1,
     'filter_num' : 100,
-    'learning_rate' : 1e-4,
+    'learning_rate' : 2e-4,
     'nhid' : 200, # the dimension of the feedforward network model in nn.TransformerEncoder
     'nlayers' : 2,    # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
     'nhead' : 2,  # the number of heads in the multiheadattention models

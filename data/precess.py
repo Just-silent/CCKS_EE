@@ -121,6 +121,144 @@ def sub_text_more(file='train'):
     wb1.save(save_path)
     logger.info('Finished cut {}.xlsx'.format(file))
 
+def sub_text_condition(file='train'):
+    if file == 'train':
+        path = './sub_train.xlsx'
+        save_path = './sub_cut_train1.xlsx'
+    else:
+        path = './sub_dev.xlsx'
+        save_path = './sub_cut_dev1.xlsx'
+    wb = load_workbook(path)
+    ws = wb['sheet1']
+    max_row = ws.max_row
+    wb1 = Workbook()
+    ws1 = wb1.create_sheet('sheet1')
+    wb1.remove(wb1['Sheet'])
+    names = ['原文', '原发部位', '病灶大小', '转移部位']
+    for i in range(len(names)):
+        ws1.cell(1, i + 1, names[i])
+    all_text = []
+    all_origin = []
+    all_size = []
+    all_trans = []
+    for i in range(max_row-1):
+        line = i+2
+        text = ws.cell(line,1).value
+        texts = tool.split_text(text)
+        all_text.extend(texts)
+        if ws.cell(line,4).value is not None and text.__contains__('转移'):
+            places = ws.cell(line,4).value.split(',')
+            for t in texts:
+                place_in_text = []
+                for place in places:
+                    if place in t and t.__contains__('转移'):
+                        place_in_text.append(place)
+                all_trans.append(','.join(place_in_text))
+        elif ws.cell(line,4).value is not None and not text.__contains__('转移'):
+            places = ws.cell(line, 4).value.split(',')
+            for t in texts:
+                place_in_text = []
+                for place in places:
+                    if place in t :
+                        place_in_text.append(place)
+                all_trans.append(','.join(place_in_text))
+        elif ws.cell(line,4).value is None:
+            for t in texts:
+                all_trans.append('')
+
+        # if ws.cell(line,2).value is not None and ws.cell(line,3).value is not None:
+        #     places_origin = ws.cell(line, 2).value.split(',')
+        #     places_size = ws.cell(line, 3).value.split(',')
+        #     flag = False
+        #     for t in texts:
+        #         for size in places_size:
+        #             if t.__contains__(size):
+        #                 for origin in  places_origin:
+        #                     if t.__contains__(origin):
+        #                         flag = True
+        #     if flag:
+        #         for t in texts:
+        #             origins = []
+        #             sizes = []
+        #             for size in places_size:
+        #                 if t.__contains__(size):
+        #                     sizes.append(size)
+        #                     for origin in places_origin:
+        #                         if t.__contains__(origin):
+        #                             origins.append(origin)
+        #             all_origin.append(','.join(origins))
+        #             all_size.append(','.join(sizes))
+        #     else:
+        #         places = ws.cell(line, 2).value.split(',')
+        #         for t in texts:
+        #             place_in_text = []
+        #             for place in places:
+        #                 if place in t:
+        #                     place_in_text.append(place)
+        #             all_origin.append(','.join(place_in_text))
+        #         places = ws.cell(line, 3).value.split(',')
+        #         for t in texts:
+        #             place_in_text = []
+        #             for place in places:
+        #                 if place in t:
+        #                     place_in_text.append(place)
+        #             all_size.append(','.join(place_in_text))
+        # else:
+        #     if ws.cell(line,2).value is not None:
+        #         places = ws.cell(line,2).value.split(',')
+        #         for t in texts:
+        #             place_in_text = []
+        #             for place in places:
+        #                 if place in t:
+        #                     place_in_text.append(place)
+        #             all_origin.append(','.join(place_in_text))
+        #     else:
+        #         for t in texts:
+        #             all_origin.append('')
+        #     if ws.cell(line,3).value is not None:
+        #         places = ws.cell(line,3).value.split(',')
+        #         for t in texts:
+        #             place_in_text = []
+        #             for place in places:
+        #                 if place in t:
+        #                     place_in_text.append(place)
+        #             all_size.append(','.join(place_in_text))
+        #     else:
+        #         for t in texts:
+        #             all_size.append('')
+
+        for j in range(2):
+            if ws.cell(line,j+2).value is not None:
+                places = ws.cell(line,j+2).value.split(',')
+                for t in texts:
+                    place_in_text = []
+                    for place in places:
+                        if place in t:
+                            place_in_text.append(place)
+                    if j==0:
+                        all_origin.append(','.join(place_in_text))
+                    elif j==1:
+                        all_size.append(','.join(place_in_text))
+                    else:
+                        all_trans.append(','.join(place_in_text))
+            else:
+                for t in texts:
+                    if j==0:
+                        all_origin.append('')
+                    elif j==1:
+                        all_size.append('')
+                    else:
+                        all_trans.append('')
+    assert len(all_trans) == len(all_size) and len(all_trans) == len(all_origin), 'len(all_trans) != len(all_size) or len(all_trans) != len(all_origin)'
+    for i in range(len(all_text)):
+        line = i+2
+        ws1.cell(line,1,all_text[i])
+        ws1.cell(line,2,all_origin[i])
+        ws1.cell(line,3,all_size[i])
+        ws1.cell(line,4,all_trans[i])
+    wb1.save(save_path)
+    logger.info('Finished cut {}.xlsx'.format(file))
+
 def data_clean(path='./task2_train_reformat{}.xlsx'):
     wb = load_workbook(path.format(''))
     ws = wb['sheet1']
@@ -136,9 +274,11 @@ def data_clean(path='./task2_train_reformat{}.xlsx'):
     for i in range(max_row - 1):
         line = i + 2
         new_sentence = ''
-        chars = ['.','*','×','X','x','c','C','m','M']
-        o_chars = ['_x0004_', '�', ':', ',', ';']
-        t_chars = ['', '', '：', '，', '；']
+        chars = ['.','*','×','X','x','c','C','m','M',' ']
+        # o_chars = ['_x0004_', '�', ':', ',', ';']
+        # t_chars = ['', '', '：', '，', '；']
+        o_chars = ['�']
+        t_chars = ['']
         for i in range(4):
             if i==0:
                 if '检测值' in ws.cell(line,i+1).value:
@@ -184,11 +324,9 @@ def data_clean(path='./task2_train_reformat{}.xlsx'):
                             new_size = new_size[:-1]
                         j=end
                         new_sentence = new_sentence.replace(old_size,new_size)
-                        a = 0
                     j+=1
                 ws1.cell(line,i+1,new_sentence)
             elif i==1 or i==3:
-
                 places = ws.cell(line,i+1).value
                 if places is not None:
                     places = places.replace('_x0004_', '').replace(' ', '')
@@ -239,7 +377,6 @@ def seg_train(path=config.train_dev_path):
         for i in range(4):
             sheet_train.cell(1,i+1,ws.cell(1,i+1).value)
             sheet_dev.cell(1,i+1,ws.cell(1,i+1).value)
-
         mid = len(indexs) // 10 * 8
         train_line = 2
         test_line = 2
@@ -270,14 +407,14 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
     names = ['原文', '肿瘤原发部位', '原发病灶大小', '转移部位']
     for i in range(len(names)):
         ws1.cell(1, i + 1, names[i])
-    place_num = 0
-    size_num = 0
     for i in range(max_row - 1):
         line = i + 2
         new_sentence = ''
         chars = ['.','*','×','X','x','c','C','m','M']
-        o_chars = ['_x0004_', '�', ':', ',', ';']
-        t_chars = ['', '', '：', '，', '；']
+        # o_chars = ['_x0004_', '�', ':', ',', ';']
+        # t_chars = ['', '', '：', '，', '；']
+        o_chars = ['�']
+        t_chars = ['']
         for i in range(4):
             if i==0:
                 if '检测值' in ws.cell(line, i + 1).value:
@@ -286,6 +423,7 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
                         new_sentence = new_sentence.replace(o_chars[j], t_chars[j])
                 else:
                     new_sentence = ws.cell(line, i+1).value.replace(' ', '')
+                    # new_sentence = ws.cell(line, i + 1).value
                     for j in range(len(o_chars)):
                         new_sentence = new_sentence.replace(o_chars[j], t_chars[j])
                 j = 0
@@ -322,7 +460,6 @@ def data_clean_test(path='./task2_no_val{}.xlsx'):
                             new_size = new_size[:-1]
                         j=end
                         new_sentence = new_sentence.replace(old_size,new_size)
-                        a = 0
                     j+=1
                 ws1.cell(line,i+1,new_sentence)
     wb1.save(path.format('_cleaned'))
@@ -357,11 +494,104 @@ def get_all_vocab():
             all_cocab_file.write(place+'\n')
     logger.info('all_vocab写入完成')
 
+def get_three_files(file='train'):
+    if file == 'train':
+        path = './sub_train.xlsx'
+        save_conclusion_path = './conclusion_train.xlsx'
+        save_describe_path = './describe_train.xlsx'
+        save_others_path = './others_train.xlsx'
+    else:
+        path = './sub_dev.xlsx'
+        save_conclusion_path = './conclusion_dev.xlsx'
+        save_describe_path = './describe_dev.xlsx'
+        save_others_path = './others_dev.xlsx'
+    wb = load_workbook(path)
+    ws = wb['sheet1']
+    max_row = ws.max_row
+    wb1 = Workbook()
+    ws1 = wb1.create_sheet('sheet1')
+    wb1.remove(wb1['Sheet'])
+    wb2 = Workbook()
+    ws2 = wb2.create_sheet('sheet1')
+    wb2.remove(wb2['Sheet'])
+    wb3 = Workbook()
+    ws3 = wb3.create_sheet('sheet1')
+    wb3.remove(wb3['Sheet'])
+    names = ['原文', '原发部位', '病灶大小', '转移部位']
+    line1 = 2
+    line2 = 2
+    line3 = 2
+    for i in range(len(names)):
+        ws1.cell(1, i + 1, names[i])
+        ws2.cell(1, i + 1, names[i])
+        ws3.cell(1, i + 1, names[i])
+    for row in tqdm(range(2,max_row + 1)):
+        new_origin_places = ''
+        new_size = ''
+        new_trans = ''
+        text = ws.cell(row, 1).value
+        describe, conclusion = tool.split_describe_conclusion(text)
+        if conclusion is not None:
+            origin_places = ws.cell(row, 2).value
+            sizes= ws.cell(row, 3).value
+            transfered_places = ws.cell(row, 4).value
+            for i, place_str in enumerate([origin_places, sizes, transfered_places]):
+                if place_str is not None:
+                    if i==2:
+                        new_place = ''
+                        places = place_str.split(',')
+                        for place in places:
+                            if place in conclusion:
+                                new_place = new_place + place + ','
+                        new_trans = new_place[:-1]
+                    elif i==1:
+                        new_place = ''
+                        places = place_str.split(',')
+                        for place in places:
+                            if place in describe:
+                                new_place = new_place + place + ','
+                        new_size = new_place[:-1]
+                    else:
+                        new_place = ''
+                        places = place_str.split(',')
+                        for place in places:
+                            if place in describe:
+                                new_place = new_place + place + ','
+                        new_origin_places = new_place[:-1]
+                else:
+                    if i==2:
+                        new_trans = None
+                    elif i==1:
+                        new_size = None
+                    else:
+                        new_origin_places = None
+            ws1.cell(line1, 1, describe)
+            ws1.cell(line1, 2, new_origin_places)
+            ws1.cell(line1, 3, new_size)
+            ws2.cell(line2, 1, conclusion)
+            ws2.cell(line2, 4, new_trans)
+            line1+=1
+            line2+=1
+        else:
+            origin_places = ws.cell(row, 2).value
+            sizes = ws.cell(row, 3).value
+            transfered_places = ws.cell(row, 4).value
+            ws3.cell(line3, 1, describe)
+            ws3.cell(line3, 2, origin_places)
+            ws3.cell(line3, 3, sizes)
+            ws3.cell(line3, 4, transfered_places)
+            line3+=1
+    wb1.save(save_describe_path)
+    wb2.save(save_conclusion_path)
+    wb3.save(save_others_path)
+
 if __name__ == '__main__':
     data_clean()
     seg_train('./task2_train_reformat_cleaned.xlsx')
     files = ['train','dev']
     for file in files:
-        sub_text_more(file)
+        # sub_text_more(file)
+        # get_three_files(file)
+        sub_text_condition(file)
     data_clean_test()
     # get_all_vocab()

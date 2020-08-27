@@ -89,15 +89,57 @@ def get_tag(sentence, origin_places, sizes, transfered_places):
         if columns is not None:
             for column in columns.split(','):
                 # 如果能够直接找到
-                start = sentence.find(column)
-                end = start + len(column) - 1
-                if start==-1:
-                    print('找不到')
-                tag[start] = 'B_{}'.format(tag_kinds[i])
-                start += 1
-                while start<=end:
-                    tag[start] = 'I_{}'.format(tag_kinds[i])
-                    start+=1
+                starts = tool.find_all_index(sentence, column)
+                ends = [start + len(column) - 1 for start in starts]
+                # 不能直接找到
+                size_chars = ['C', 'M', 'c', 'm', '*', '×', '.', ' ', 'X']
+                if starts == []:
+                    # 如果是一维数据（eg：35cm，而不是35cm*35cm）
+                    if not column.__contains__('*') and not column.__contains__('×'):
+                        num = ''
+                        for x in column:
+                            if x.isdigit():
+                                num+=x
+                        start = sentence.find(num)
+                        end = start+1
+                        while True:
+                            if sentence[end] in size_chars[:4] or sentence[end].isdigit():
+                                end+=1
+                            else:
+                                break
+                    # 如果是二维数据（eg：不是35cm，而是35cm*35cm）
+                    elif column.__contains__('*') or column.__contains__('×'):
+                        if column.__contains__('*'):
+                            sub1, sub2 = column.split('*')
+                        else:
+                            sub1, sub2 = column.split('×')
+                        num1 = ''
+                        for x in sub1:
+                            if x.isdigit() or x == '.':
+                                num1 += x
+                        num2 = ''
+                        for x in sub2:
+                            if x.isdigit() or x == '.':
+                                num2 += x
+                        start = sentence.find(num1)
+                        start2 = sentence.find(num2)
+                        if start2 - start >10:
+                            print('距离过大，寻找错误')
+                        else:
+                            end = start
+                            while True:
+                                if sentence[end+1] in size_chars or sentence[end+1].isdigit():
+                                    end += 1
+                                else:
+                                    break
+                for j in range(len(starts)):
+                    start = starts[j]
+                    end = ends[j]
+                    tag[start] = 'B_{}'.format(tag_kinds[i])
+                    start += 1
+                    while start<=end:
+                        tag[start] = 'I_{}'.format(tag_kinds[i])
+                        start+=1
     return tag
 
 def get_all_tag(sentence, origin_places, sizes, transfered_places):
@@ -224,7 +266,7 @@ class EEDataset(Dataset):
             w_trie = Trie()
             for w in w_list:
                 w_trie.insert(w)
-        for line_num in tqdm(range(max_row-1)):     # 1400
+        for line_num in tqdm(range(max_row-1)):
             line_num = line_num+2
             sentence, origin_places ,sizes ,transfered_places = ws.cell(line_num, 1).value, ws.cell(line_num, 2).value, ws.cell(line_num, 3).value, ws.cell(line_num, 4).value
             hidden_tag = [0]
@@ -241,10 +283,8 @@ class EEDataset(Dataset):
                     # tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
                     # size非占位符 bio
                     tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
-                    # sentence_list = [x for x in sentence]
-                    sentence_list = []
-                    for i in range(len(sentence)):
-                        sentence_list.append(sentence[i])
+                    # tag_list = get_tag(sentence, origin_places, sizes, transfered_places)
+                    sentence_list = [x for x in sentence]
                 else:
                     if config.model_name == 'FLAT':
 
@@ -255,10 +295,8 @@ class EEDataset(Dataset):
                     # tag_list = get_all_tag_bioes(sentence, origin_places, sizes, transfered_places)
                     # size非占位符 bio
                     tag_list = get_all_tag(sentence, origin_places, sizes, transfered_places)
-                    # sentence_list = [x for x in sentence]
-                    sentence_list = []
-                    for i in range(len(sentence)):
-                        sentence_list.append(sentence[i])
+                    # tag_list = get_tag(sentence, origin_places, sizes, transfered_places)
+                    sentence_list = [x for x in sentence]
                 if config.model_name == 'BiLSTM_CRF_hidden_tag':
                     examples.append(Example.fromlist((sentence_list, tag_list, hidden_tag), fields))
                 elif config.model_name == 'FLAT':
@@ -351,7 +389,7 @@ class Tool():
         return Hidden_TAG.vocab
 
     def get_iterator(self, dataset: Dataset, batch_size=1,
-                     sort_key=lambda x: len(x.lattice), sort_within_batch=True):
+                     sort_key=lambda x: len(x.text), sort_within_batch=True):
         iterator = BucketIterator(dataset, batch_size=batch_size, sort_key=sort_key,
                               sort_within_batch=sort_within_batch, device=device)
         return iterator
@@ -545,7 +583,7 @@ class Tool():
         plt.show()
 
     def find_all_index(self, str1, str2):
-        # 子串str2， 查找目标字符串str1
+        # 子串str2， in str1查找目标字符串
         starts = []
         start = 0
         over = 0
@@ -569,21 +607,43 @@ class Tool():
         for i in range(len(texts)):
             if texts[i] != '':
                 result1.append(texts[i]+'。')
-        for text in result1:
-            if text.__contains__(';'):
-                texts = re.split(';', text)
-                for i in range(len(texts)-1):
-                    if texts[i] != '':
-                        result2.append(texts[i]+';')
-                result2.append(texts[len(texts)-1])
-            elif text.__contains__('；'):
-                texts = re.split('；', text)
-                for i in range(len(texts)-1):
-                    if texts[i] != '':
-                        result2.append(texts[i] + '；')
-                result2.append(texts[len(texts)-1])
+        # for text in result1:
+        #     if text.__contains__(';'):
+        #         texts = re.split(';', text)
+        #         for i in range(len(texts)-1):
+        #             if texts[i] != '':
+        #                 result2.append(texts[i]+';')
+        #         result2.append(texts[len(texts)-1])
+        #     elif text.__contains__('；'):
+        #         texts = re.split('；', text)
+        #         for i in range(len(texts)-1):
+        #             if texts[i] != '':
+        #                 result2.append(texts[i] + '；')
+        #         result2.append(texts[len(texts)-1])
+        #     else:
+        #         result2.append(text)
+        return result1
+
+    def split_describe_conclusion(self, str1):
+        i = 1
+        while True:
+            if re.search('({}\.|{}\、)\D'.format(i, i), str1) is not None:
+                i+=1
             else:
-                result2.append(text)
-        return result2
+                i-=1
+                break
+        if i==0:
+            return str1, None
+        str2 = ''
+        for j in range(i):
+            if j<i-1:
+                str2 = str2 + '({}\.|{}\、)\D.*?'.format(j+1, j+1)
+            else:
+                str2 = str2 + '({}\.|{}\、)\D.*?{}'.format(j+1, j+1, '。')
+        result = re.search(str2, str1)
+        if result is None:
+            return str1, None
+        else:
+            return str1.replace(result.group(),''), result.group()
 
 tool = Tool()

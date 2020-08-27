@@ -195,10 +195,26 @@ def analysis_conclusion(path='task2_train_reformat.xlsx'):
             num+=1
     print('结论是固定格式的句子比例：{}'.format(num/(max_row-1)))
 
+def trans_keyword_analysis(path='task2_train_reformat.xlsx'):
+    wb = load_workbook(path)
+    ws = wb['sheet1']
+    max_row = ws.max_row
+    contain = 0
+    uncontain = 0
+    for line in range(2, max_row+1):
+        if ws.cell(line, 4).value is not None:
+            if ws.cell(line, 1).value.__contains__('转移'):
+                contain+=1
+            else:
+                print(ws.cell(line, 1).value, ws.cell(line, 4).value)
+                uncontain+=1
+    print('contian:{}   uncontain:{}'.format(contain, uncontain))
+
 if __name__ == '__main__':
     # get_lengths('./sub_cut_train.xlsx')
     # tagging_notagging()
     # tags_proportion()
     # analysis_tag_in_sentence(path='task2_train_reformat_cleaned.xlsx')
     # origin_proportion_i_sentence()
-    analysis_conclusion(path='task2_train_reformat_cleaned.xlsx')
+    # analysis_conclusion(path='task2_train_reformat_cleaned.xlsx')
+    trans_keyword_analysis()
