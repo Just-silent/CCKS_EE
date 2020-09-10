@@ -165,68 +165,6 @@ def sub_text_condition(file='train'):
         elif ws.cell(line,4).value is None:
             for t in texts:
                 all_trans.append('')
-
-        # if ws.cell(line,2).value is not None and ws.cell(line,3).value is not None:
-        #     places_origin = ws.cell(line, 2).value.split(',')
-        #     places_size = ws.cell(line, 3).value.split(',')
-        #     flag = False
-        #     for t in texts:
-        #         for size in places_size:
-        #             if t.__contains__(size):
-        #                 for origin in  places_origin:
-        #                     if t.__contains__(origin):
-        #                         flag = True
-        #     if flag:
-        #         for t in texts:
-        #             origins = []
-        #             sizes = []
-        #             for size in places_size:
-        #                 if t.__contains__(size):
-        #                     sizes.append(size)
-        #                     for origin in places_origin:
-        #                         if t.__contains__(origin):
-        #                             origins.append(origin)
-        #             all_origin.append(','.join(origins))
-        #             all_size.append(','.join(sizes))
-        #     else:
-        #         places = ws.cell(line, 2).value.split(',')
-        #         for t in texts:
-        #             place_in_text = []
-        #             for place in places:
-        #                 if place in t:
-        #                     place_in_text.append(place)
-        #             all_origin.append(','.join(place_in_text))
-        #         places = ws.cell(line, 3).value.split(',')
-        #         for t in texts:
-        #             place_in_text = []
-        #             for place in places:
-        #                 if place in t:
-        #                     place_in_text.append(place)
-        #             all_size.append(','.join(place_in_text))
-        # else:
-        #     if ws.cell(line,2).value is not None:
-        #         places = ws.cell(line,2).value.split(',')
-        #         for t in texts:
-        #             place_in_text = []
-        #             for place in places:
-        #                 if place in t:
-        #                     place_in_text.append(place)
-        #             all_origin.append(','.join(place_in_text))
-        #     else:
-        #         for t in texts:
-        #             all_origin.append('')
-        #     if ws.cell(line,3).value is not None:
-        #         places = ws.cell(line,3).value.split(',')
-        #         for t in texts:
-        #             place_in_text = []
-        #             for place in places:
-        #                 if place in t:
-        #                     place_in_text.append(place)
-        #             all_size.append(','.join(place_in_text))
-        #     else:
-        #         for t in texts:
-        #             all_size.append('')
-
         for j in range(2):
             if ws.cell(line,j+2).value is not None:
                 places = ws.cell(line,j+2).value.split(',')
@@ -249,7 +187,112 @@ def sub_text_condition(file='train'):
                         all_size.append('')
                     else:
                         all_trans.append('')
-    assert len(all_trans) == len(all_size) and len(all_trans) == len(all_origin), 'len(all_trans) != len(all_size) or len(all_trans) != len(all_origin)'
+        # line = i+2
+        # text = ws.cell(line, 1).value
+        # describe, conclusion = tool.split_describe_conclusion(text)
+        # origin = ws.cell(line, 2).value
+        # size = ws.cell(line, 3).value
+        # tran = ws.cell(line, 4).value
+        # if conclusion is not None:
+        #     conclusions = tool.split_text(conclusion)
+        #     all_text.extend(conclusions)
+        #     if origin is not None :
+        #         origins = origin.split(',')
+        #         for text in conclusions:
+        #             place_in_text = []
+        #             for place in origins:
+        #                 if place in text:
+        #                     place_in_text.append(place)
+        #             all_origin.append(''.join(place_in_text))
+        #     else:
+        #         for i in range(len(conclusions)):
+        #             all_origin.append('')
+        #     if tran is not None:
+        #         trans = tran.split(',')
+        #         for text in conclusions:
+        #             place_in_text = []
+        #             for place in trans:
+        #                 if place in text and place.__contains__('转移'):
+        #                     place_in_text.append(place)
+        #             all_trans.append(','.join(place_in_text))
+        #     else:
+        #         for i in range(len(conclusions)):
+        #             all_trans.append('')
+        #     for i in range(len(conclusions)):
+        #         all_size.append('')
+        #     describes = tool.split_text(describe)
+        #     all_text.extend(describes)
+        #     if origin is not None and size is not None:
+        #         origins = origin.split(',')
+        #         sizes = size.split(',')
+        #         for text in describes:
+        #             place_in_text1 = []
+        #             place_in_text2 = []
+        #             for place1 in origins:
+        #                 for place2 in sizes:
+        #                     if place1 in text and place2 in text:
+        #                         place_in_text1.append(place1)
+        #                         place_in_text2.append(place2)
+        #             all_origin.append(','.join(place_in_text1))
+        #             all_size.append(','.join(place_in_text2))
+        #             all_trans.append('')
+        #     elif origin is not None and size is None:
+        #         origins = origin.split(',')
+        #         for text in describes:
+        #             place_in_text = []
+        #             for place in origins:
+        #                 if place in text:
+        #                     place_in_text.append(place)
+        #             all_origin.append(','.join(place_in_text))
+        #             all_size.append('')
+        #             all_trans.append('')
+        #     else:
+        #         for i in range(len(describes)):
+        #             all_origin.append('')
+        #             all_size.append('')
+        #             all_trans.append('')
+        # else:
+        #     describes = tool.split_text(describe)
+        #     all_text.extend(describes)
+        #     if origin is not None and size is not None:
+        #         origins = origin.split(',')
+        #         sizes = size.split(',')
+        #         for text in describes:
+        #             place_in_text1 = []
+        #             place_in_text2 = []
+        #             for place1 in origins:
+        #                 for place2 in sizes:
+        #                     if place1 in text and place2 in text:
+        #                         place_in_text1.append(place1)
+        #                         place_in_text2.append(place2)
+        #             all_origin.append(','.join(place_in_text1))
+        #             all_size.append(','.join(place_in_text2))
+        #     elif origin is not None and size is None:
+        #         origins = origin.split(',')
+        #         for text in describes:
+        #             place_in_text = []
+        #             for place in origins:
+        #                 if place in text:
+        #                     place_in_text.append(place)
+        #             all_origin.append(','.join(place_in_text))
+        #             all_size.append('')
+        #     elif origin is None and size is None:
+        #         for text in describes:
+        #             all_origin.append('')
+        #             all_size.append('')
+        #     if tran is not None:
+        #         trans = tran.split(',')
+        #         for text in describes:
+        #             place_in_text = []
+        #             for place in trans:
+        #                 if place in text and text.__contains__('转移'):
+        #                     place_in_text.append(place)
+        #             all_trans.append(','.join(place_in_text))
+        #     else:
+        #         for text in describes:
+        #             all_trans.append('')
+
+    assert len(all_text) == len(all_trans) and len(all_trans) == len(all_size) and len(all_trans) == len(all_origin), 'len(all_trans) != len(all_size) or len(all_trans) != len(all_origin)'
     for i in range(len(all_text)):
         line = i+2
         ws1.cell(line,1,all_text[i])

@@ -20,6 +20,7 @@ from base.layers import ScaledDotProductAttention, SelfAttention, MultiHeadAtten
 class TransformerEncoderModel(nn.Module):
     def __init__(self, config, ntoken, ntag, vectors):
         super(TransformerEncoderModel, self).__init__()
+        self.ntoken = ntoken
         self.config = config
         self.src_mask = None
         self.vectors = vectors
@@ -45,6 +46,9 @@ class TransformerEncoderModel(nn.Module):
         self.linner = nn.Linear(config.bi_lstm_hidden, ntag)
         self.init_weights()
         self.crflayer = CRF(ntag)
+        self.dice_loss = DiceLoss()
+        self.criterion = nn.CrossEntropyLoss()
+        self.lm_decoder = nn.Linear(self.config.bi_lstm_hidden, ntoken)
 
     def _generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
@@ -76,8 +80,15 @@ class TransformerEncoderModel(nn.Module):
         lstm_out, _ = self.lstm(transformer_out)
         emissions = self.linner(lstm_out)
         # crf_loss = self.crflayer(emissions, tag, mask=mask_crf) / tag.size(1)
-        crf_loss = self.crflayer(emissions, tag, mask=mask_crf)
-        return -crf_loss
+        dice = self.config.dice_loss_weight * self.dice_loss(emissions.permute(1,2,0), tag.permute(1,0))
+        if self.config.is_dice_loss:
+            crf_loss = self.crflayer(emissions, tag, mask=mask_crf) - self.config.dice_loss_weight * self.dice_loss(emissions.permute(1,2,0), tag.permute(1,0))
+        elif self.config.is_dae_loss:
+            a=self.config.dae_loss_weight * self.dae_loss(src, text_len)
+            crf_loss = self.crflayer(emissions, tag, mask=mask_crf) - self.config.dae_loss_weight * self.dae_loss(src, text_len)
+        else:
+            crf_loss = self.crflayer(emissions, tag, mask=mask_crf)
+        return -crf_loss, dice
 
     def forward(self, src, text_len):
         self.hidden = self.init_hidden_lstm()
@@ -97,6 +108,31 @@ class TransformerEncoderModel(nn.Module):
         output = self.transformer_encoder(src, mask=self.src_mask.to(device),
                                           src_key_padding_mask=src_key_padding_mask.to(device))
         return output
+
+    def dae_loss(self, src, text_len):
+        src_encoding = self.encode(src, text_len)
+        lm_output = self.decode_lm(src_encoding)
+        lm_loss = self.criterion(lm_output.view(-1, self.ntoken), src.view(-1))
+        return lm_loss
+
+    def encode(self, source, length):
+        # _, hidden = self.lstm(source)
+        # output, _ = self.lstm(source, hidden)
+        embed = self.embedding(source)
+        packed_src_embed = pack_padded_sequence(embed, length)
+        _, hidden = self.lstm(packed_src_embed)
+        # embed = self.drop(self.embedding(source))
+        packed_src_embed = pack_padded_sequence(embed, length)
+        lstm_output, _ = self.lstm(packed_src_embed, hidden)
+        lstm_output = pad_packed_sequence(lstm_output)
+        # lstm_output = self.drop(lstm_output[0])
+        return lstm_output[0]
+
+    def decode_lm(self, src_encoding):
+        decoded = self.lm_decoder(
+            src_encoding.contiguous().view(src_encoding.size(0) * src_encoding.size(1), src_encoding.size(2)))
+        lm_output = decoded.view(src_encoding.size(0), src_encoding.size(1), decoded.size(1))
+        return lm_output
 
 class FLAT(nn.Module):
     def __init__(self, config, nbigram, nlattice, ntag, vectors):

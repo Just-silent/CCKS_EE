@@ -6,22 +6,17 @@ from module import EE
 from config import config
 
 def one_test():
-    config.experiment_name = 'TransformerEncoderModel_DAE_100'  # 实验名称
-    config.model_name = 'TransformerEncoderModel'  # 模型名称  TransformerEncoderModel
+    config.experiment_name = 'FLAT_test'  # 实验名称
+    config.model_name = 'FLAT'  # 模型名称
     config.is_vector = False  # 是否使用bert词向量
     config.is_hidden_tag = False  # 是否增加 子句hidden-> 是否有待抽取属性 的约束
     config.is_bioes = False
-    config.is_dice_loss = False
-    config.dice_loss_weight = 100
-    config.is_dae_loss = True
-    config.dae_loss_weight = 100
     config.epoch = 100
 
     ee = EE(config)
     ee.train()
     ee.predict_test()
-    ee.write_val_true_pred()
-    ee.predict_sentence()
+    # ee.predict_sentence()
     # ee.test_format_result()
 
 def many_test():
@@ -33,12 +28,11 @@ def many_test():
     # CNN+
     # bert
     test_dict = {
-        'experiment_name' : ['TransformerEncoderModel_dice_loss_400', 'TransformerEncoderModel_dice_loss_700'],
-        'model_name' : ['TransformerEncoderModel', 'TransformerEncoderModel'],
-        'is_vector' : [False, False],
-        'is_bioes' : [False, False],
-        'embedding_size' : [300, 300],
-        'weight':[400,700]
+        'experiment_name' : ['TransformerEncoderModel_clean_bio_unbert', 'TransformerEncoderModel_clean_bioes_unbert', 'TransformerEncoderModel_clean_bio_bert', 'TransformerEncoderModel_clean_bioes_bert'],
+        'model_name' : ['TransformerEncoderModel','TransformerEncoderModel','TransformerEncoderModel','TransformerEncoderModel'],
+        'is_vector' : [False, False, True, True],
+        'is_bioes' : [False, True, False, True],
+        'embedding_size' : [768, 768, 768, 768],
     }
     for i in range(len(test_dict['experiment_name'])):
         config.experiment_name = test_dict['experiment_name'][i] # 实验名称
@@ -46,15 +40,13 @@ def many_test():
         config.is_vector = test_dict['is_vector'][i] # 是否使用bert词向量
         config.is_bioes = test_dict['is_bioes'][i]
         config.embedding_size = test_dict['embedding_size'][i]
-        config.is_dice_loss = True
-        config.dice_loss_weight = test_dict['weight'][i]
-        config.epoch = 100
 
         ee = EE(config)
         ee.train()
-        ee.predict_test()
+        # ee.predict_test()
         # ee.predict_sentence()
         # ee.test_format_result()
 
 if __name__ == '__main__':
+    # many_test()
     one_test()

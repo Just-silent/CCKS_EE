@@ -48,6 +48,10 @@ default_config = {
     'val_dim': 64,
     'attn_dropout': 0.2,
     'num_heads': 3,
+    'is_dice_loss' : False,
+    'dice_loss_weight' : 1,
+    'is_dae_loss' : False,
+    'dae_loss_weight' : 1,
 }
 
 class Config():

@@ -127,6 +127,7 @@ class EE():
         for epoch in range(self.config.epoch):
             model.train()
             acc_loss = 0
+            dice_loss = 0
             for index, iter in enumerate(tqdm(train_iter)):
                 if iter.tag.shape[1] == self.config.batch_size:
                     optimizer.zero_grad()
@@ -144,8 +145,9 @@ class EE():
                             hidden_tag = iter.hidden_tag
                             loss = model.loss(text, text_len, tag, hidden_tag)
                         else:
-                            loss = model.loss(text, text_len, tag)
+                            loss, dice = model.loss(text, text_len, tag)
                     acc_loss += loss.view(-1).cpu().data.tolist()[0]
+                    dice_loss += dice.view(-1).cpu().data.tolist()[0]
                     loss.backward()
                     optimizer.step()
             f1, report_dict, entity_prf_dict = self.eval(dev_iter)
@@ -153,6 +155,7 @@ class EE():
             # f1 = report_dict['weighted avg']['f1-score']
             f1_list.append(f1)
             epoch_list.append(epoch + 1)
+            logger.info('dice_loss:{}'.format(dice_loss))
             logger.info('epoch:{}   loss:{}   weighted avg:{}'.format(epoch, acc_loss, report_dict['weighted avg']))
             if f1 > max_f1:
                 max_f1 = f1
