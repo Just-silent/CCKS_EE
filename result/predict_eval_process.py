@@ -89,7 +89,5 @@ def eval(path='./data/{}/unformated_val.xlsx'.format(config.experiment_name)):
                 trues = ws.cell(line, colum1).value.split(',')
                 preds = ws.cell(line, colum2).value.split(',')
 
-
-
 if __name__ == '__main__':
     format_result()

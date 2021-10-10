@@ -21,18 +21,19 @@ class DiceLoss(nn.Module):
         return dice_loss
 
 # class DiceLoss(torch.nn.Module):
-#     def init(self):
-#         super(DiceLoss, self).init()
 #
-#     def forward(self, pred, target):
-#         smooth = 1.
-#         iflat = pred.contiguous().view(-1)
-#         tflat = target.contiguous().view(-1)
-#         intersection = (iflat * tflat).sum()
-#         A_sum = torch.sum(iflat * iflat)
-#         B_sum = torch.sum(tflat * tflat)
-#         return 1 - ((2. * intersection + smooth) / (A_sum + B_sum + smooth))
-
+#     def __init__(self,alpha:float = 1.0, gamma: float = 1.0) -> None:
+#         super().__init__()
+#         self.alpha = alpha
+#         self.gamma = gamma
+#
+#     def forward(self, pred: torch.Tensor, target:torch.Tensor) -> torch.Tensor:
+#
+#         probs = torch.softmax(pred, dim=1)
+#         probs = torch.gather(probs, dim=1, index=target.unsqueeze(1))
+#         probs_with_factor = ((1 - probs) ** self.alpha) * probs
+#         loss = 1 - (2 * probs_with_factor + self.gamma) / (probs_with_factor + 1 + self.gamma)
+#         return loss.mean()
 class FocalLoss(nn.Module):
     def __init__(self, gamma=0, alpha=None, size_average=True):
         super(FocalLoss, self).__init__()

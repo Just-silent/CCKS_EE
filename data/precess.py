@@ -629,12 +629,12 @@ def get_three_files(file='train'):
     wb3.save(save_others_path)
 
 if __name__ == '__main__':
-    data_clean()
-    seg_train('./task2_train_reformat_cleaned.xlsx')
+    # data_clean()
+    # seg_train('./task2_train_reformat_cleaned.xlsx')
     files = ['train','dev']
     for file in files:
         # sub_text_more(file)
         # get_three_files(file)
         sub_text_condition(file)
-    data_clean_test()
+    # data_clean_test()
     # get_all_vocab()

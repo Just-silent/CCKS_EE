@@ -4,7 +4,7 @@
 
 import torch
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 default_config = {
     'experiment_name' : 'TransformerEncoderModel_bio_no_size_clean',                                    # 实验名称
@@ -14,7 +14,7 @@ default_config = {
     'dev_path' : './data/sub_cut_dev1.xlsx',
     'analysis_dev_path' : './data/sub_dev.xlsx',
     'train_dev_path' : './data/task2_train_reformat_cleaned.xlsx',
-    'test_path' : './data/task2_no_val_cleaned.xlsx',
+    'test_path' : './data/test.xlsx',
     'vocab_path' : './data/all_vocab.txt',
     'unformated_val_path' : './result/data/{}/unformated_val.xlsx',  # 模型训练直接预测
     'test_formated_val_path' : './result/data/{}/test_format/formated_val.xlsx',    # 测试format结果是否有提升
@@ -26,8 +26,8 @@ default_config = {
     'pretrained_config' : './pretrained_models/RoBERTa/config.json',
     'pretrained_model' : './pretrained_models/RoBERTa/pytorch_model.bin',
     'pretrained_vocab' : './pretrained_models/RoBERTa/vocab.txt',
-    'is_vector' : False,                                            # 是否使用词向量
-    'vector' : './vector/bert_vectors_768.txt',
+    'is_vector' : True,                                            # 是否使用词向量
+    'vector' : './vector/vector.txt',
     'embedding_size' : 300,   # embedding dimension     预训练模型：hidden 1024/786   word2voc：300
     'bigram_embedding_size':150,
     'lattice_embedding_size':150,
